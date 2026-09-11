@@ -2,6 +2,10 @@
 
 `spviz` is a TensorBoard-style observer for intermediate signal-processing data products. Your application continues to own execution, scheduling, and data flow. `spviz` only taps values that the application already produced, records their semantic axes and lineage, and serves an interactive visualization afterward.
 
+**[Open the live synthetic radar demo](https://briday1.github.io/signal-processing-visualization/)**
+
+GitHub Actions regenerates that example from `examples/radar.py` and deploys it to Pages on every push to `main`. You can create the same serverless bundle yourself with `spviz export-static RUN_DIR OUTPUT_DIR`.
+
 ## Install and run the radar example
 
 ```bash

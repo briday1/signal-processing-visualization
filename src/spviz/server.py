@@ -250,6 +250,15 @@ def make_handler(store: RunStore):
                 except (KeyError, ValueError) as error:
                     return self._json({"error": str(error)}, 400)
             asset = "index.html" if request.path == "/" else request.path.lstrip("/")
+            if asset == "config.js":
+                body = b"window.SPVIZ_STATIC_BASE = null;\n"
+                self.send_response(200)
+                self.send_header("Content-Type", "text/javascript")
+                self.send_header("Content-Length", str(len(body)))
+                self.send_header("Cache-Control", "no-store")
+                self.end_headers()
+                self.wfile.write(body)
+                return
             candidate = web_root.joinpath(asset)
             if not candidate.is_file():
                 self.send_error(404)
