@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>spviz</title>
+  <link rel="stylesheet" href="/style.css">
+  <link rel="stylesheet" href="/range.css">
+</head>
+<body>
+  <header><div><h1 id="run-name">spviz</h1><p id="run-meta">Loading run…</p></div><div class="brand">SPVIZ</div></header>
+  <main>
+    <section aria-labelledby="pipeline-title"><div class="section-head"><div><h2 id="pipeline-title">Processing graph</h2><p>Click a data product to inspect its layers. Surface colors come from captured values.</p></div></div><div id="pipeline" class="pipeline"></div></section>
+    <section id="inspector" class="inspector" aria-labelledby="inspect-title">
+      <div class="section-head"><div><h2 id="inspect-title">Inspector</h2><p id="inspect-description"></p></div><button id="play" type="button">Play layers</button></div>
+      <div class="export-actions" aria-label="Export figures"><button id="save-layer" type="button">Save layer PNG</button><button id="save-stack" type="button">Save stack PNG</button><button id="save-animation" type="button">Save animation GIF</button><button id="save-chain" type="button">Save full chain</button></div>
+      <div class="inspect-grid"><div class="volume-wrap"><canvas id="volume" aria-label="Transparent data volume"></canvas><div id="volume-status" class="loading-status" role="status" aria-live="polite"></div></div><aside>
+        <label>Axis order<select id="permutation"></select></label>
+        <label>Selected layer <output id="layer-output"></output><input id="layer" type="range" min="0" value="0"></label>
+        <label class="check"><input id="isolate" type="checkbox"> Isolate selected layer</label>
+        <label>Current layer <output id="current-opacity-output">100%</output><input id="current-opacity" type="range" min="0" max="100" value="100"></label>
+        <label>Other layers <output id="opacity-output">25%</output><input id="opacity" type="range" min="0" max="100" value="25"></label>
+        <button id="link-opacity" type="button" aria-pressed="false">Link transparency: off</button>
+        <label>Pixel density <output id="quality-output">96 px/axis</output><input id="quality" type="range" min="1" max="96" value="96" step="1"></label>
+        <label>Display range <span class="range-values"><output id="minimum-output">0</output><span>–</span><output id="maximum-output">1</output></span><span class="dual-range"><input id="minimum" aria-label="Display minimum" type="range" min="0" max="99" value="0"><input id="maximum" aria-label="Display maximum" type="range" min="1" max="100" value="100"></span></label>
+        <label class="check"><input id="log-scale" type="checkbox"> Logarithmic color scaling</label>
+        <div class="scale" aria-label="Magnitude color scale"></div><div class="scale-label"><span>low</span><span>high</span></div>
+        <dl><div><dt>Shape</dt><dd id="shape"></dd></div><div><dt>Payload</dt><dd id="payload"></dd></div><div><dt>Peak</dt><dd id="peak"></dd></div><div><dt>Selected value</dt><dd id="cell">Click a cell</dd></div></dl>
+      </aside></div>
+    </section>
+  </main>
+  <script src="/gif.js"></script>
+  <script src="/app.js"></script>
+</body>
+</html>
