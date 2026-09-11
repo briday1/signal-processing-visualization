@@ -130,6 +130,16 @@ class SessionTests(unittest.TestCase):
             manifest = json.loads((run_path / "manifest.json").read_text())
             self.assertEqual([product["scale"] for product in manifest["products"]], ["linear", "log"])
 
+    def test_product_display_limits(self):
+        with tempfile.TemporaryDirectory() as directory:
+            run_path = Path(directory) / "run"
+            with spviz.Session(run_path) as run:
+                run.capture("limited", np.arange(8), vmin=2.5, vmax=6.5)
+                with self.assertRaisesRegex(ValueError, "vmin must be less"):
+                    run.capture("bad", np.arange(8), vmin=7, vmax=2)
+            product = json.loads((run_path / "manifest.json").read_text())["products"][0]
+            self.assertEqual((product["display_min"], product["display_max"]), (2.5, 6.5))
+
 
 if __name__ == "__main__":
     unittest.main()

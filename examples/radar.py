@@ -64,6 +64,8 @@ def generate(output: Path, seed: int = 7) -> Path:
         },
         units="normalized voltage",
         scale="linear",
+        vmin=float(np.percentile(np.abs(iq), 18)),
+        vmax=float(np.percentile(np.abs(iq), 99.8)),
         metadata={"description": "Calibrated complex ADC samples with thermal noise and distributed clutter."},
     )
 
@@ -80,6 +82,8 @@ def generate(output: Path, seed: int = 7) -> Path:
         },
         operation="steer + coherent sum",
         scale="log",
+        vmin=float(np.percentile(np.abs(beamformed), 35)),
+        vmax=float(np.percentile(np.abs(beamformed), 99.8)),
         inputs=iq,
         metadata={"look_angles_deg": look_angles, "description": "Twenty-five conventional beamformer look directions."},
     )
@@ -104,6 +108,8 @@ def generate(output: Path, seed: int = 7) -> Path:
         inputs=beamformed,
         units="power",
         scale="log",
+        vmin=float(np.percentile(power, 55)),
+        vmax=float(np.percentile(power, 99.9)),
         metadata={"description": "Windowed and Doppler-centered range–Doppler power volume."},
     )
 
@@ -141,6 +147,8 @@ def generate(output: Path, seed: int = 7) -> Path:
         inputs=power,
         units="power",
         scale="log",
+        vmin=max(float(np.percentile(cell_average, 45)), 1e-12),
+        vmax=float(np.percentile(cell_average, 99.8)),
         metadata={"description": "Local background-power estimate from CFAR training cells, excluding guard cells."},
     )
     spviz.tap(
@@ -156,6 +164,8 @@ def generate(output: Path, seed: int = 7) -> Path:
         inputs=[power, cell_average],
         units="binary",
         scale="linear",
+        vmin=0,
+        vmax=1,
         metadata={"description": "Binary CA-CFAR decisions: 1 is a detection and 0 is background."},
     )
     recorder.session.metadata["targets"] = targets

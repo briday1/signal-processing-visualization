@@ -20,6 +20,7 @@ class StaticExportTests(unittest.TestCase):
             self.assertTrue((site / "index.html").is_file())
             self.assertIn('option value="viridis"', (site / "index.html").read_text())
             self.assertIn("SPVIZ_STATIC_BASE", (site / "config.js").read_text())
+            self.assertIn("SPVIZ_GALLERY_URL", (site / "config.js").read_text())
             manifest = json.loads((site / "data" / "run.json").read_text())
             product_id = manifest["products"][0]["id"]
             volumes = list((site / "data" / "volumes").glob(f"{product_id}--*.f32"))

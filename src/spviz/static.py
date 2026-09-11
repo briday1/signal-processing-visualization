@@ -22,7 +22,9 @@ def export_static(run_dir: str | Path, output_dir: str | Path) -> Path:
     web = files("spviz").joinpath("web")
     for name in ("index.html", "style.css", "range.css", "app.js", "gif.js"):
         shutil.copyfile(web.joinpath(name), output / name)
-    (output / "config.js").write_text("window.SPVIZ_STATIC_BASE = './data';\n", encoding="utf-8")
+    (output / "config.js").write_text(
+        "window.SPVIZ_STATIC_BASE = './data'; window.SPVIZ_GALLERY_URL = '../';\n", encoding="utf-8"
+    )
     (data / "run.json").write_text(json.dumps(store.manifest, separators=(",", ":")), encoding="utf-8")
 
     for product in store.manifest["products"]:

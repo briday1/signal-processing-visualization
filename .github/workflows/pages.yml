@@ -1,4 +1,4 @@
-name: Deploy radar demo to Pages
+name: Deploy signal-processing examples to Pages
 
 on:
   push:
@@ -27,8 +27,7 @@ jobs:
           python-version: "3.12"
           cache: pip
       - run: pip install .
-      - run: python examples/radar.py --output build/radar-demo
-      - run: spviz export-static build/radar-demo build/site
+      - run: python examples/gallery.py --output build/site
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:

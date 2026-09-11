@@ -8,7 +8,7 @@
   <link rel="stylesheet" href="./range.css">
 </head>
 <body>
-  <header><div><h1 id="run-name">spviz</h1><p id="run-meta">Loading run…</p></div><div class="appearance"><label>Theme<select id="theme"><option value="dark">Dark</option><option value="light">Light</option></select></label><label>Color map<select id="colormap"><option value="spviz">Spviz</option><option value="viridis">Viridis</option><option value="plasma">Plasma</option><option value="inferno">Inferno</option><option value="magma">Magma</option><option value="cividis">Cividis</option></select></label><div class="brand">SPVIZ</div></div></header>
+  <header><div><h1 id="run-name">spviz</h1><p id="run-meta">Loading run…</p></div><div class="appearance"><a id="gallery-link" class="gallery-link" hidden>All examples</a><label>Theme<select id="theme"><option value="dark">Dark</option><option value="light">Light</option></select></label><label>Color map<select id="colormap"><option value="spviz">Spviz</option><option value="viridis">Viridis</option><option value="plasma">Plasma</option><option value="inferno">Inferno</option><option value="magma">Magma</option><option value="cividis">Cividis</option></select></label><div class="brand">SPVIZ</div></div></header>
   <main>
     <section aria-labelledby="pipeline-title"><div class="section-head"><div><h2 id="pipeline-title">Processing graph</h2><p>Click a data product to inspect its layers. Surface colors come from captured values.</p></div></div><div id="pipeline" class="pipeline"></div></section>
     <section id="inspector" class="inspector" aria-labelledby="inspect-title">

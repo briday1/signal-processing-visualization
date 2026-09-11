@@ -2,7 +2,13 @@
 
 `spviz` is a TensorBoard-style observer for intermediate signal-processing data products. Your application continues to own execution, scheduling, and data flow. `spviz` only taps values that the application already produced, records their semantic axes and lineage, and serves an interactive visualization afterward.
 
-**[Open the live synthetic radar demo](https://briday1.github.io/signal-processing-visualization/)**
+**[Explore all five live examples](https://briday1.github.io/signal-processing-visualization/)**
+
+1. [Phased-array radar](https://briday1.github.io/signal-processing-visualization/radar/) — beamforming, range–Doppler processing, cell averaging, and CA-CFAR.
+2. [Microphone-array audio](https://briday1.github.io/signal-processing-visualization/audio/) — delay-and-sum steering, spectra, noise estimation, and tone tracking.
+3. [QPSK receiver](https://briday1.github.io/signal-processing-visualization/comms/) — carrier correction, matched filtering, symbol error magnitude, and decisions.
+4. [Seismic array](https://briday1.github.io/signal-processing-visualization/seismic/) — trace filtering, spectra, event-energy integration, and triggering.
+5. [Multi-lead ECG](https://briday1.github.io/signal-processing-visualization/ecg/) — baseline removal, QRS enhancement, energy integration, and peak candidates.
 
 GitHub Actions regenerates that example from `examples/radar.py` and deploys it to Pages on every push to `main`. You can create the same serverless bundle yourself with `spviz export-static RUN_DIR OUTPUT_DIR`.
 
@@ -49,6 +55,8 @@ spviz.tap(
     filename="beamformed_iq.npy",
     axes=["beam", "pulse", "sample"],
     scale="log",
+    vmin=1e-4,
+    vmax=2.0,
     operation="beamform",
     inputs=iq,
 )
@@ -93,6 +101,8 @@ beamformed = spviz.tap(beamform(iq), "Beamformed", inputs=iq)
 `filename=` controls the `.npy` filename inside the run's `arrays/` directory. It is intentionally a filename rather than an arbitrary path, keeping runs self-contained and portable. When omitted, `spviz` derives a safe filename from the display name and adds a suffix for repeated names.
 
 `scale=` sets the product's default visualization scale to `"linear"` (the default) or `"log"`. It initializes the inspector and is also honored by the full-chain overview. Users can still toggle the selected product interactively.
+
+`vmin=` and `vmax=` set a product's initial absolute display range. Values at or below `vmin` are fully transparent and then fade smoothly into the selected color map; this lets background/noise disappear into either the dark or light theme without discarding the underlying captured data. The viewer's range controls remain adjustable.
 
 For code where wrapping a function is convenient, optional instrumentation observes its return value while leaving invocation and scheduling with the original application:
 

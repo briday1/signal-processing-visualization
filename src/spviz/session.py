@@ -64,6 +64,8 @@ class Session:
         coordinates: dict[str | int, Any] | None = None,
         filename: str | Path | None = None,
         scale: str = "linear",
+        vmin: float | None = None,
+        vmax: float | None = None,
         operation: str | None = None,
         upstream: str | Iterable[str] | None = None,
         units: str | None = None,
@@ -75,6 +77,12 @@ class Session:
         axis_names = list(axes or (f"axis_{i}" for i in range(array.ndim)))
         if scale not in {"linear", "log"}:
             raise ValueError("scale must be 'linear' or 'log'")
+        if vmin is not None and not np.isfinite(vmin):
+            raise ValueError("vmin must be finite")
+        if vmax is not None and not np.isfinite(vmax):
+            raise ValueError("vmax must be finite")
+        if vmin is not None and vmax is not None and vmin >= vmax:
+            raise ValueError("vmin must be less than vmax")
         if len(axis_names) != array.ndim:
             raise ValueError(f"Expected {array.ndim} axis names, received {len(axis_names)}")
         if len(set(axis_names)) != len(axis_names):
@@ -181,6 +189,8 @@ class Session:
             "shape": list(array.shape),
             "dtype": str(array.dtype),
             "scale": scale,
+            "display_min": float(vmin) if vmin is not None else None,
+            "display_max": float(vmax) if vmax is not None else None,
             "bytes": int(array.nbytes),
             "axes": axis_names,
             "view_axes": [axis_names[index] for index in resolved_view_axes],
