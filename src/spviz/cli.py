@@ -11,7 +11,7 @@ def parser() -> argparse.ArgumentParser:
     serve_parser = sub.add_parser("serve", help="Serve a captured run in the browser")
     serve_parser.add_argument("run_dir", help="Directory containing manifest.json")
     serve_parser.add_argument("--host", default="127.0.0.1")
-    serve_parser.add_argument("--port", default=8765, type=int)
+    serve_parser.add_argument("-p", "--port", default=8765, type=int, metavar="PORT", help="TCP port to listen on (default: 8765)")
     return result
 
 

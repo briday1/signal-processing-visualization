@@ -12,6 +12,12 @@ python examples/radar.py
 spviz serve runs/radar-demo
 ```
 
+Choose a different port with either `--port` or `-p`:
+
+```bash
+spviz serve runs/radar-demo --port 9000
+```
+
 Open <http://127.0.0.1:8765>. Click any product without losing the pipeline overview, permute axes, scrub or animate layers, isolate a layer, adjust the opacity of other layers, rotate the volume, and inspect individual values.
 
 The inspector can export the selected axis-labeled layer as PNG, the current transparent stack as PNG, an animated GIF sweep through the selected depth axis, or the complete processing chain as PNG. Exports preserve the active axis permutation, coordinates, units, color limits, log mode, transparency, and selected layer where applicable.
@@ -92,7 +98,7 @@ def filter_bank(iq):
     return existing_filter_implementation(iq)
 ```
 
-Observed runs are portable directories containing `manifest.json` and standard NumPy `.npy` files. The browser requests only the selected, downsampled slice, so the first version can inspect arrays larger than it could safely serialize in one page.
+Observed runs are portable directories containing `manifest.json` and standard NumPy `.npy` files. The browser requests a resolution-limited visualization volume once, then changes layers locally for responsive interaction without loading the full source array.
 
 ## Current scope
 
