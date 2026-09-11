@@ -8,7 +8,7 @@
   <link rel="stylesheet" href="./range.css">
 </head>
 <body>
-  <header><div><h1 id="run-name">spviz</h1><p id="run-meta">Loading run…</p></div><div class="brand">SPVIZ</div></header>
+  <header><div><h1 id="run-name">spviz</h1><p id="run-meta">Loading run…</p></div><div class="appearance"><label>Theme<select id="theme"><option value="dark">Dark</option><option value="light">Light</option></select></label><label>Color map<select id="colormap"><option value="spviz">Spviz</option><option value="viridis">Viridis</option><option value="plasma">Plasma</option><option value="inferno">Inferno</option><option value="magma">Magma</option><option value="cividis">Cividis</option></select></label><div class="brand">SPVIZ</div></div></header>
   <main>
     <section aria-labelledby="pipeline-title"><div class="section-head"><div><h2 id="pipeline-title">Processing graph</h2><p>Click a data product to inspect its layers. Surface colors come from captured values.</p></div></div><div id="pipeline" class="pipeline"></div></section>
     <section id="inspector" class="inspector" aria-labelledby="inspect-title">
@@ -24,7 +24,7 @@
         <label>Pixel density <output id="quality-output">96 px/axis</output><input id="quality" type="range" min="1" max="96" value="96" step="1"></label>
         <label>Display range <span class="range-values"><output id="minimum-output">0</output><span>–</span><output id="maximum-output">1</output></span><span class="dual-range"><input id="minimum" aria-label="Display minimum" type="range" min="0" max="99" value="0"><input id="maximum" aria-label="Display maximum" type="range" min="1" max="100" value="100"></span></label>
         <label class="check"><input id="log-scale" type="checkbox"> Logarithmic color scaling</label>
-        <div class="scale" aria-label="Magnitude color scale"></div><div class="scale-label"><span>low</span><span>high</span></div>
+        <div id="scale" class="scale" aria-label="Magnitude color scale"></div><div class="scale-label"><span>low / transparent</span><span>high</span></div>
         <dl><div><dt>Shape</dt><dd id="shape"></dd></div><div><dt>Payload</dt><dd id="payload"></dd></div><div><dt>Peak</dt><dd id="peak"></dd></div><div><dt>Selected value</dt><dd id="cell">Click a cell</dd></div></dl>
       </aside></div>
     </section>

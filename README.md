@@ -24,6 +24,8 @@ spviz serve runs/radar-demo --port 9000
 
 Open <http://127.0.0.1:8765>. Click any product without losing the pipeline overview, permute axes, scrub or animate layers, isolate a layer, adjust the opacity of other layers, rotate the volume, and inspect individual values.
 
+The viewer includes dark and light interface themes plus Spviz, Viridis, Plasma, Inferno, Magma, and Cividis color maps. The latter five use the familiar Matplotlib palette endpoints; values at or below the selected minimum remain transparent so the chosen page theme forms the visualization's low-end background.
+
 The inspector can export the selected axis-labeled layer as PNG, the current transparent stack as PNG, an animated GIF sweep through the selected depth axis, or the complete processing chain as PNG. Exports preserve the active axis permutation, coordinates, units, color limits, log mode, transparency, and selected layer where applicable.
 
 The pixel-density control trades fidelity for interaction speed using an explicit samples-per-displayed-axis count. Its maximum is the selected plane's largest native dimension, which requests the full plane without downsampling. The pipeline overview remains fixed at a lightweight 64 samples per axis.

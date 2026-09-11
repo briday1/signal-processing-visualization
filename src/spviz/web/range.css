@@ -20,7 +20,7 @@
   top: 10px;
   height: 4px;
   border-radius: 2px;
-  background: linear-gradient(90deg, var(--panel), var(--blue), var(--cyan), var(--orange), var(--red));
+  background: var(--colormap-gradient);
 }
 .dual-range input {
   position: absolute;
@@ -107,7 +107,7 @@ main {
   padding: 6px 10px;
   border-radius: 6px;
   color: var(--text);
-  background: rgba(16,26,44,.94);
+  background: var(--panel);
   border: 1px solid var(--line);
   pointer-events: none;
   opacity: 0;
@@ -122,7 +122,7 @@ main {
   right: 12px;
   padding: 5px;
   color: var(--muted) !important;
-  background: rgba(12,21,37,.94);
+  background: var(--panel2);
   border-radius: 5px;
   font-family: inherit !important;
   z-index: 3;
