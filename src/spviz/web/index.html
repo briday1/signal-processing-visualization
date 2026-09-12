@@ -10,12 +10,13 @@
 <body>
   <header><div><h1 id="run-name">spviz</h1><p id="run-meta">Loading run…</p></div><div class="appearance"><a id="gallery-link" class="gallery-link" hidden>All examples</a><label>Theme<select id="theme"><option value="dark">Dark</option><option value="light">Light</option></select></label><label>Color map<select id="colormap"><option value="spviz">Spviz</option><option value="viridis">Viridis</option><option value="plasma">Plasma</option><option value="inferno">Inferno</option><option value="magma">Magma</option><option value="cividis">Cividis</option></select></label><div class="brand">SPVIZ</div></div></header>
   <main>
-    <section aria-labelledby="pipeline-title"><div class="section-head"><div><h2 id="pipeline-title">Processing graph</h2><p>Click a data product to inspect its layers. Surface colors come from captured values.</p></div></div><div id="pipeline" class="pipeline"></div></section>
+    <section aria-labelledby="pipeline-title"><div class="section-head"><div><h2 id="pipeline-title">Processing graph</h2><p>Click a data product to inspect its layers. Surface colors come from captured values.</p></div><label>Overview aspect<select id="overview-aspect"><option value="data">Data proportions</option><option value="equal">Equal axes</option><option value="fit">Fit cards</option></select></label></div><div id="pipeline" class="pipeline"></div></section>
     <section id="inspector" class="inspector" aria-labelledby="inspect-title">
       <div class="section-head"><div><h2 id="inspect-title">Inspector</h2><p id="inspect-description"></p></div><button id="play" type="button">Play layers</button></div>
       <div class="export-actions" aria-label="Export figures"><button id="save-layer" type="button">Save layer PNG</button><button id="save-stack" type="button">Save stack PNG</button><button id="save-animation" type="button">Save animation GIF</button><button id="save-chain" type="button">Save full chain</button></div>
       <div class="inspect-grid"><div class="volume-wrap"><canvas id="volume" aria-label="Transparent data volume"></canvas><div id="volume-status" class="loading-status" role="status" aria-live="polite"></div></div><aside>
         <label>Axis order<select id="permutation"></select></label>
+        <label>View<select id="view-mode"><option value="surface">Surface / heatmap</option><option value="slices">Stacked line slices</option></select></label>
         <label>Aspect ratio<select id="aspect"><option value="data">Data proportions</option><option value="equal">Equal axes</option><option value="fit">Fit view</option></select></label>
         <label>Selected layer <output id="layer-output"></output><input id="layer" type="range" min="0" value="0"></label>
         <label class="check"><input id="isolate" type="checkbox"> Isolate selected layer</label>

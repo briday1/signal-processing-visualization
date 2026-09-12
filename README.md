@@ -33,7 +33,7 @@ Choose a different port with either `--port` or `-p`:
 spviz serve runs/radar-demo --port 9000
 ```
 
-Open <http://127.0.0.1:8765>. Click any product without losing the pipeline overview, permute axes, scrub or animate layers, isolate a layer, adjust the opacity of other layers, drag horizontally or vertically to rotate the volume, and inspect individual values.
+Open <http://127.0.0.1:8765>. Click any product without losing the pipeline overview, permute axes, scrub or animate layers, isolate a layer, adjust the opacity of other layers, and inspect individual values. Three-dimensional stacks use projected yaw and pitch geometry, so horizontal and vertical dragging rotate and nutate the data volume instead of merely shifting its layers. Two-dimensional products can switch between a heatmap and stacked 1D slices; axis order selects which dimension becomes the playable layer axis.
 
 The viewer includes dark and light interface themes plus Spviz, Viridis, Plasma, Inferno, Magma, and Cividis color maps. The latter five use the familiar Matplotlib palette endpoints; values at or below the selected minimum remain transparent so the chosen page theme forms the visualization's low-end background.
 
@@ -41,7 +41,7 @@ The inspector can export the selected axis-labeled layer as PNG, the current tra
 
 The pixel-density control trades fidelity for interaction speed using an explicit samples-per-displayed-axis count. Its maximum is the selected plane's largest native dimension, which requests the full plane without downsampling. The pipeline overview remains fixed at a lightweight 64 samples per axis.
 
-The aspect-ratio control offers **Data proportions** (the normal array width-to-height ratio), **Equal axes** (a square display extent), and **Fit view** (fill the available inspector area).
+The inspector aspect-ratio control offers **Data proportions** (the normal array width-to-height ratio), **Equal axes** (a square display extent), and **Fit view** (fill the available inspector area). The processing overview has a separate aspect control and defaults to data-proportional previews, so changing the full-chain presentation does not alter the selected product view.
 
 ## Observe your existing pipeline
 
