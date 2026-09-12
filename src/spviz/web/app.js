@@ -157,11 +157,14 @@ function setVolumeStatus(message, error = false) {
   status.classList.toggle("error", error);
   $("volume").setAttribute("aria-busy", String(Boolean(message) && !error));
 }
+function resetVolumeGeometry() {
+  $("volume")._geometry = null;
+}
 function clearVolumeCanvas() {
   const canvas = $("volume"),
     context = canvas.getContext("2d");
   if (context) context.clearRect(0, 0, canvas.width, canvas.height);
-  canvas._geometry = null;
+  resetVolumeGeometry();
 }
 function qualityLimit() {
   return state.pixelDensity;
@@ -625,7 +628,7 @@ function syncFixedDimensionControls() {
       state.fixedIndices.set(axis, +input.value);
       updateLabel();
       $("cell").textContent = "Click a cell";
-      $("volume")._geometry = null;
+      resetVolumeGeometry();
       setVolumeStatus("Loading fixed slice…");
       clearTimeout(qualityTimer);
       qualityTimer = setTimeout(scheduleDraw, 110);
@@ -1466,7 +1469,7 @@ async function drawVolume(version) {
   const canvas = $("volume"),
     product = state.product;
   if (!product) return;
-  canvas._geometry = null;
+  resetVolumeGeometry();
   const perm = [...state.perm],
     selectedLayer = state.layer,
     sliced2D = perm.length === 2 && state.viewMode === "slices",
@@ -1868,7 +1871,7 @@ $("permutation").onchange = (event) => {
 $("layer").oninput = (event) => {
   state.layer = +event.target.value;
   syncLayer();
-  $("volume")._geometry = null;
+  resetVolumeGeometry();
   setVolumeStatus("Loading layer…");
   clearTimeout(qualityTimer);
   qualityTimer = setTimeout(scheduleDraw, 45);
@@ -1946,7 +1949,7 @@ $("quality").oninput = (event) => {
   state.pixelDensity = +event.target.value;
   $("quality-output").textContent =
     `${state.pixelDensity} / ${event.target.max} px`;
-  $("volume")._geometry = null;
+  resetVolumeGeometry();
   setVolumeStatus("Updating detail…");
   clearTimeout(qualityTimer);
   qualityTimer = setTimeout(scheduleDraw, 110);
