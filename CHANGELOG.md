@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.2.1 — 2026-09-12
+
+- Keep large and Retina displays responsive with a bounded interactive canvas backing store.
+- Render translucent context layers at a separate bounded density while preserving the selected layer's requested detail.
+- Skip costly full-surface blur passes when the rendered area is large.
+- Debounce color-range rerasterization and bound volume, slice, bitmap, and static-source caches by memory.
+
 ## 0.2.0 — 2026-09-11
 
 - Keep the observer passive: user code owns execution and `tap()` records values and lineage.

@@ -31,6 +31,12 @@ const state = {
   viewMode: "surface",
 };
 let qualityTimer = 0;
+const MAX_CANVAS_BACKING_PIXELS = 2_000_000,
+  MAX_VOLUME_CACHE_BYTES = 64 * 1024 * 1024,
+  MAX_SLICE_CACHE_BYTES = 64 * 1024 * 1024,
+  MAX_BITMAP_CACHE_BYTES = 64 * 1024 * 1024,
+  MAX_RAW_STATIC_CACHE_BYTES = 96 * 1024 * 1024,
+  MAX_CONTEXT_DENSITY = 256;
 const $ = (id) => document.getElementById(id),
   hexColors = (colors) =>
     colors.map((hex) => [
@@ -145,10 +151,21 @@ function permutations(n) {
   );
   return out;
 }
-function lruSet(cache, key, value, limit) {
+function cachedBytes(value) {
+  if (value instanceof HTMLCanvasElement) return value.width * value.height * 4;
+  return value?.values?.byteLength || 0;
+}
+function lruSet(cache, key, value, limit, maximumBytes = Infinity) {
   cache.delete(key);
   cache.set(key, value);
-  while (cache.size > limit) cache.delete(cache.keys().next().value);
+  let totalBytes = 0;
+  for (const cached of cache.values()) totalBytes += cachedBytes(cached);
+  while (cache.size > limit || totalBytes > maximumBytes) {
+    const oldest = cache.keys().next().value,
+      removed = cache.get(oldest);
+    cache.delete(oldest);
+    totalBytes -= cachedBytes(removed);
+  }
 }
 function setVolumeStatus(message, error = false) {
   const status = $("volume-status");
@@ -172,6 +189,9 @@ function clearVolumeCanvas() {
 }
 function qualityLimit() {
   return state.pixelDensity;
+}
+function contextQualityLimit() {
+  return Math.min(MAX_CONTEXT_DENSITY, qualityLimit());
 }
 const staticBase = window.SPVIZ_STATIC_BASE;
 if (window.SPVIZ_GALLERY_URL) {
@@ -345,6 +365,16 @@ async function getVolume(
             throw new Error("Static volume length does not match its metadata");
           return { ...metadata, values };
         })
+        .then((result) => {
+          lruSet(
+            state.rawVolumes,
+            stem,
+            result,
+            12,
+            MAX_RAW_STATIC_CACHE_BYTES,
+          );
+          return result;
+        })
         .catch((error) => {
           state.rawVolumes.delete(stem);
           throw error;
@@ -354,7 +384,7 @@ async function getVolume(
   }
   const pending = (
     staticBase
-      ? source.then((volume) =>
+      ? Promise.resolve(source).then((volume) =>
           downsampleVolume(downsampleDepth(volume, depthLimit), limit),
         )
       : checkedVolume(
@@ -365,7 +395,7 @@ async function getVolume(
         )
   )
     .then((result) => {
-      lruSet(state.volumes, key, result, 12);
+      lruSet(state.volumes, key, result, 12, MAX_VOLUME_CACHE_BYTES);
       return result;
     })
     .catch((error) => {
@@ -422,7 +452,7 @@ async function getSlice(product, perm, layer, limit = qualityLimit()) {
   }
   pending = pending
     .then((result) => {
-      lruSet(state.slices, key, result, 48);
+      lruSet(state.slices, key, result, 48, MAX_SLICE_CACHE_BYTES);
       return result;
     })
     .catch((error) => {
@@ -460,7 +490,7 @@ async function get2DTrace(product, perm, layer, limit = qualityLimit()) {
             source_plane_shape: [1, product.shape[perm[1]]],
             row_indices: [clamped],
           };
-          lruSet(state.slices, key, trace, 48);
+          lruSet(state.slices, key, trace, 48, MAX_SLICE_CACHE_BYTES);
           return trace;
         })
         .catch((error) => {
@@ -820,7 +850,14 @@ function drawProjectedAxes(context, geometry, light = false) {
 }
 function canvasSize(canvas) {
   const rect = canvas.getBoundingClientRect(),
-    ratio = devicePixelRatio || 1;
+    nativeRatio = devicePixelRatio || 1,
+    ratio = Math.min(
+      nativeRatio,
+      Math.sqrt(
+        MAX_CANVAS_BACKING_PIXELS /
+          Math.max(1, Math.ceil(rect.width) * Math.ceil(rect.height)),
+      ),
+    );
   if (
     canvas.width !== Math.round(rect.width * ratio) ||
     canvas.height !== Math.round(rect.height * ratio)
@@ -831,6 +868,7 @@ function canvasSize(canvas) {
   const context = canvas.getContext("2d");
   context.setTransform(ratio, 0, 0, ratio, 0, 0);
   context.clearRect(0, 0, rect.width, rect.height);
+  canvas._renderRatio = ratio;
   return { context, width: rect.width, height: rect.height };
 }
 function scaleBounds(product, log, minFraction = 0, maxFraction = 1) {
@@ -1088,7 +1126,7 @@ function bitmapFor(slice, min, max, log, scope) {
     pixels[offset + 3] = Math.round(255 * alpha);
   }
   context.putImageData(image, 0, 0);
-  lruSet(state.bitmaps, key, canvas, 192);
+  lruSet(state.bitmaps, key, canvas, 192, MAX_BITMAP_CACHE_BYTES);
   return canvas;
 }
 async function drawOverview(product, canvas) {
@@ -1476,6 +1514,12 @@ function scheduleDraw() {
     drawVolume(state.renderVersion);
   });
 }
+function scheduleExpensiveDraw(message, delay = 90) {
+  resetVolumeGeometry();
+  setVolumeStatus(message);
+  clearTimeout(qualityTimer);
+  qualityTimer = setTimeout(scheduleDraw, delay);
+}
 async function drawVolume(version) {
   const canvas = $("volume"),
     product = state.product;
@@ -1496,7 +1540,7 @@ async function drawVolume(version) {
         get2DTrace(product, perm, selectedLayer),
         state.isolate
           ? Promise.resolve(null)
-          : getVolume(product, perm, qualityLimit(), 1),
+          : getVolume(product, perm, contextQualityLimit(), 1),
       ]);
       selectedSlice = exactTrace;
       if (plane) {
@@ -1526,7 +1570,7 @@ async function drawVolume(version) {
     } else if (perm.length === 3 && !state.isolate) {
       const [exactSlice, volume] = await Promise.all([
           getSlice(product, perm, selectedLayer),
-          getVolume(product, perm, qualityLimit(), count),
+          getVolume(product, perm, contextQualityLimit(), count),
         ]),
         planeSize = volume.rows * volume.columns;
       selectedSlice = exactSlice;
@@ -1746,7 +1790,10 @@ async function drawVolume(version) {
       (offsetX < 0 ? Math.abs(offsetX) * (slots - 1) : 0),
     originY = (height - stackHeight - 50) / 2 - Math.min(0, stackDy),
     [displayMin, displayMax] = displayBounds(product),
-    bitmapScope = `detail:${state.scaleMin}:${state.scaleMax}:${state.logScale}`;
+    bitmapScope = `detail:${state.scaleMin}:${state.scaleMax}:${state.logScale}`,
+    ink = themeInk(),
+    useLayerBlur =
+      planeWidth * planeHeight * (canvas._renderRatio || 1) ** 2 < 650_000;
   context.imageSmoothingEnabled = false;
   function drawContextLayer(i, inFront) {
     const layer = contextLayers[i];
@@ -1761,7 +1808,8 @@ async function drawVolume(version) {
       );
     context.save();
     context.globalAlpha = state.opacity;
-    context.filter = `blur(${(0.55 + distance * 1.8 + (inFront ? 0.35 : 0)).toFixed(2)}px)`;
+    if (useLayerBlur)
+      context.filter = `blur(${(0.45 + distance * 1.25 + (inFront ? 0.25 : 0)).toFixed(2)}px)`;
     context.drawImage(
       image,
       originX + offsetX * i,
@@ -1772,7 +1820,7 @@ async function drawVolume(version) {
     context.restore();
     context.save();
     context.globalAlpha = state.opacity;
-    context.strokeStyle = themeInk().line;
+    context.strokeStyle = ink.line;
     context.strokeRect(
       originX + offsetX * i,
       originY + offsetY * i,
@@ -1810,7 +1858,7 @@ async function drawVolume(version) {
   );
   context.restore();
   if (!state.isolate) {
-    context.strokeStyle = themeInk().strong;
+    context.strokeStyle = ink.strong;
     context.lineWidth = 2.5;
     context.strokeRect(selectedX, selectedY, planeWidth, planeHeight);
   }
@@ -1913,7 +1961,7 @@ $("minimum").oninput = (event) => {
   syncScaleLabels();
   updateScale();
   syncScaleLegend();
-  scheduleDraw();
+  scheduleExpensiveDraw("Updating colors…");
 };
 $("maximum").oninput = (event) => {
   let value = +event.target.value,
@@ -1926,7 +1974,7 @@ $("maximum").oninput = (event) => {
   syncScaleLabels();
   updateScale();
   syncScaleLegend();
-  scheduleDraw();
+  scheduleExpensiveDraw("Updating colors…");
 };
 $("log-scale").onchange = (event) => {
   state.logScale = event.target.checked;
@@ -1960,10 +2008,7 @@ $("quality").oninput = (event) => {
   state.pixelDensity = +event.target.value;
   $("quality-output").textContent =
     `${state.pixelDensity} / ${event.target.max} px`;
-  resetVolumeGeometry();
-  setVolumeStatus("Updating detail…");
-  clearTimeout(qualityTimer);
-  qualityTimer = setTimeout(scheduleDraw, 110);
+  scheduleExpensiveDraw("Updating detail…", 110);
 };
 $("aspect").onchange = (event) => {
   state.aspect = event.target.value;
