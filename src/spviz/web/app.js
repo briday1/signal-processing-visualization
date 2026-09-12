@@ -162,8 +162,12 @@ function resetVolumeGeometry() {
 }
 function clearVolumeCanvas() {
   const canvas = $("volume"),
-    context = canvas.getContext("2d");
-  if (context) context.clearRect(0, 0, canvas.width, canvas.height);
+    width = canvas.width,
+    height = canvas.height;
+  if (width || height) {
+    canvas.width = width;
+    canvas.height = height;
+  }
   resetVolumeGeometry();
 }
 function qualityLimit() {
