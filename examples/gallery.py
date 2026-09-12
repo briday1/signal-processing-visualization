@@ -235,6 +235,70 @@ def generate_bearing(path: Path) -> Path:
     return path
 
 
+def generate_localization(path: Path) -> Path:
+    rng = np.random.default_rng(59)
+    sample_rate, samples, microphones = 8_000, 2048, 8
+    time = np.arange(samples) / sample_rate
+    reference_time = np.arange(256) / sample_rate
+    reference = np.sin(2*np.pi*(450*reference_time + 1400*reference_time**2)) * np.hanning(256)
+    source = np.zeros(samples); source[620:876] = reference
+    true_angle = 28.0
+    delays = np.rint(np.arange(microphones) * 2.2 * np.sin(np.deg2rad(true_angle))).astype(int)
+    recording = np.stack([np.roll(source, delay) for delay in delays]) + .10*rng.normal(size=(microphones, samples))
+    rec = spviz.init(path, name="Acoustic source localization", metadata={"seed": 59, "true_angle_deg": true_angle})
+    v0, v1 = trace_limits(reference)
+    spviz.tap(reference, "Reference chirp", axes=["time"], coordinates={"time": {"values": reference_time*1e3, "units": "ms"}}, units="amplitude", vmin=v0, vmax=v1)
+    v0, v1 = limits(recording, 20, 99.8)
+    spviz.tap(recording, "Microphone recording", axes=["microphone", "time"], coordinates={"microphone": np.arange(microphones), "time": {"values": time*1e3, "units": "ms"}}, operation="array capture", inputs=reference, units="amplitude", vmin=v0, vmax=v1)
+    angles = np.linspace(-60, 60, 25)
+    frame_starts = np.arange(0, samples-128+1, 64)
+    beam_spectra = np.empty((len(angles), len(frame_starts), 65), np.float32)
+    for angle_index, angle in enumerate(angles):
+        steering = np.rint(np.arange(microphones)*2.2*np.sin(np.deg2rad(angle))).astype(int)
+        beam = np.mean([np.roll(recording[mic], -steering[mic]) for mic in range(microphones)], axis=0)
+        beam_spectra[angle_index] = np.stack([np.abs(np.fft.rfft(beam[start:start+128]*np.hanning(128)))**2 for start in frame_starts])
+    frequencies = np.fft.rfftfreq(128, 1/sample_rate)
+    v0, v1 = limits(beam_spectra, 60, 99.9)
+    spviz.tap(beam_spectra, "Beam time-frequency cube", axes=["look angle", "frame", "frequency"], coordinates={"look angle": {"values": angles, "units": "deg"}, "frame": frame_starts, "frequency": {"values": frequencies, "units": "Hz"}}, operation="steer + STFT", inputs=recording, units="power", scale="log", vmin=max(v0, 1e-9), vmax=v1)
+    beam_energy = beam_spectra[:, :, 5:40].sum(axis=2)
+    v0, v1 = limits(beam_energy, 45, 99.8)
+    spviz.tap(beam_energy, "Broadband beam energy", axes=["look angle", "frame"], coordinates={"look angle": {"values": angles, "units": "deg"}, "frame": frame_starts}, operation="frequency integration", inputs=beam_spectra, units="energy", scale="log", vmin=max(v0, 1e-9), vmax=v1)
+    direction_score = beam_energy.max(axis=1)
+    spviz.tap(direction_score, "Direction score", axes=["look angle"], coordinates={"look angle": {"values": angles, "units": "deg"}}, operation="peak over time", inputs=beam_energy, units="energy", scale="log", vmin=max(float(np.percentile(direction_score, 10)), 1e-9), vmax=float(direction_score.max()))
+    rec.close()
+    return path
+
+
+def generate_ofdm(path: Path) -> Path:
+    rng = np.random.default_rng(67)
+    frames, symbols, subcarriers = 8, 12, 48
+    transmitted_bits = rng.integers(0, 4, (frames, symbols, subcarriers))
+    transmitted = np.exp(1j*(np.pi/4 + transmitted_bits*np.pi/2))
+    frequency = np.linspace(-1, 1, subcarriers)
+    channel = (.8 + .2*np.cos(np.pi*frequency))[None, None, :] * np.exp(1j*(.5*frequency))[None, None, :]
+    noise_scale = np.linspace(.06, .24, frames)[:, None, None]
+    received_grid = transmitted*channel + noise_scale*(rng.normal(size=transmitted.shape)+1j*rng.normal(size=transmitted.shape))
+    captured_iq = np.fft.ifft(received_grid, axis=2).reshape(-1)
+    rec = spviz.init(path, name="OFDM receiver quality analysis", metadata={"seed": 67})
+    spviz.tap(captured_iq, "Captured OFDM I/Q", axes=["sample"], units="normalized voltage", vmin=float(np.percentile(np.abs(captured_iq), 10)), vmax=float(np.percentile(np.abs(captured_iq), 99.8)))
+    v0, v1 = limits(received_grid, 10, 99.8)
+    spviz.tap(received_grid, "Received resource-grid cube", axes=["frame", "OFDM symbol", "subcarrier"], operation="symbol framing + FFT", inputs=captured_iq, vmin=v0, vmax=v1)
+    equalized = received_grid/channel
+    evm = np.abs(equalized-transmitted)
+    evm_map = evm.mean(axis=0)
+    v0, v1 = limits(evm_map, 5, 99.5)
+    spviz.tap(evm_map, "Mean EVM map", axes=["OFDM symbol", "subcarrier"], coordinates={"subcarrier": np.arange(-subcarriers//2, subcarriers//2)}, operation="equalize + frame average", inputs=received_grid, units="error magnitude", vmin=v0, vmax=v1)
+    subcarrier_quality = 20*np.log10(1/np.maximum(evm.mean(axis=(0,1)), 1e-6))
+    v0, v1 = trace_limits(subcarrier_quality)
+    spviz.tap(subcarrier_quality, "Subcarrier quality", axes=["subcarrier"], coordinates={"subcarrier": np.arange(-subcarriers//2, subcarriers//2)}, operation="EVM to quality", inputs=evm_map, units="dB", vmin=v0, vmax=v1)
+    references = np.exp(1j*(np.pi/4 + np.arange(4)*np.pi/2))
+    decisions = np.argmin(np.abs(equalized[:, :, :, None]-references), axis=3)
+    error_mask = (decisions != transmitted_bits).any(axis=0).astype(np.uint8)
+    spviz.tap(error_mask, "Decision-error map", axes=["OFDM symbol", "subcarrier"], operation="hard decisions across frames", inputs=[received_grid, evm_map], units="binary", vmin=0, vmax=1)
+    rec.close()
+    return path
+
+
 EXAMPLES = [
     ("radar", "Phased-array radar", "Beamforming, range–Doppler processing, cell averaging, and CA-CFAR."),
     ("audio", "Microphone-array audio", "Delay-and-sum steering, spectra, noise estimation, and tone tracking."),
@@ -244,16 +308,18 @@ EXAMPLES = [
     ("pulse-compression", "LFM pulse compression", "One-dimensional chirp, echo, matched-filter, CFAR, and detections."),
     ("equalizer", "Audio FIR equalizer", "One-dimensional waveforms, FIR coefficients, and power spectra."),
     ("bearing", "Bearing diagnostics", "One-dimensional vibration, envelope analysis, and fault harmonics."),
+    ("localization", "Acoustic localization", "A 1D → 2D → 3D → 2D → 1D array-processing pipeline."),
+    ("ofdm", "OFDM receiver", "A 1D capture, 3D resource grid, 2D EVM, and 1D quality trace."),
 ]
 
 
 def build_gallery(output: Path) -> Path:
     runs = output.parent / "runs"
-    generators = {"radar": generate_radar, "audio": generate_audio, "comms": generate_comms, "seismic": generate_seismic, "ecg": generate_ecg, "pulse-compression": generate_pulse_compression, "equalizer": generate_equalizer, "bearing": generate_bearing}
+    generators = {"radar": generate_radar, "audio": generate_audio, "comms": generate_comms, "seismic": generate_seismic, "ecg": generate_ecg, "pulse-compression": generate_pulse_compression, "equalizer": generate_equalizer, "bearing": generate_bearing, "localization": generate_localization, "ofdm": generate_ofdm}
     for slug, _, _ in EXAMPLES:
         export_static(generators[slug](runs / slug), output / slug)
     cards = "".join(f'<a class="card" href="./{slug}/"><strong>{title}</strong><span>{description}</span><b>Open pipeline →</b></a>' for slug, title, description in EXAMPLES)
-    (output / "index.html").write_text(f'''<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>spviz examples</title><style>:root{{color-scheme:dark}}*{{box-sizing:border-box}}body{{margin:0;background:#09101d;color:#e9eef8;font:16px/1.5 system-ui}}main{{max-width:1120px;margin:auto;padding:64px 24px}}h1{{font-size:46px;margin:0}}p{{color:#91a0b8;max-width:700px}}.grid{{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:18px;margin-top:38px}}.card{{min-height:190px;padding:24px;border:1px solid #293752;border-radius:14px;background:#101a2c;color:inherit;text-decoration:none;display:flex;flex-direction:column;transition:.15s}}.card:hover{{transform:translateY(-3px);border-color:#6e83ff}}strong{{font-size:21px}}span{{color:#91a0b8;margin-top:10px}}b{{color:#6e83ff;margin-top:auto}}</style></head><body><main><h1>spviz examples</h1><p>Real deterministic synthetic data flowing through eight different signal-processing pipelines. Choose one to inspect every intermediate product.</p><div class="grid">{cards}</div></main></body></html>''', encoding="utf-8")
+    (output / "index.html").write_text(f'''<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>spviz examples</title><style>:root{{color-scheme:dark}}*{{box-sizing:border-box}}body{{margin:0;background:#09101d;color:#e9eef8;font:16px/1.5 system-ui}}main{{max-width:1120px;margin:auto;padding:64px 24px}}h1{{font-size:46px;margin:0}}p{{color:#91a0b8;max-width:700px}}.grid{{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:18px;margin-top:38px}}.card{{min-height:190px;padding:24px;border:1px solid #293752;border-radius:14px;background:#101a2c;color:inherit;text-decoration:none;display:flex;flex-direction:column;transition:.15s}}.card:hover{{transform:translateY(-3px);border-color:#6e83ff}}strong{{font-size:21px}}span{{color:#91a0b8;margin-top:10px}}b{{color:#6e83ff;margin-top:auto}}</style></head><body><main><h1>spviz examples</h1><p>Real deterministic synthetic data flowing through ten different signal-processing pipelines. Choose one to inspect every intermediate product.</p><div class="grid">{cards}</div></main></body></html>''', encoding="utf-8")
     return output
 
 

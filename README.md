@@ -2,7 +2,7 @@
 
 `spviz` is a TensorBoard-style observer for intermediate signal-processing data products. Your application continues to own execution, scheduling, and data flow. `spviz` only taps values that the application already produced, records their semantic axes and lineage, and serves an interactive visualization afterward.
 
-**[Explore all eight live examples](https://briday1.github.io/signal-processing-visualization/)**
+**[Explore all ten live examples](https://briday1.github.io/signal-processing-visualization/)**
 
 1. [Phased-array radar](https://briday1.github.io/signal-processing-visualization/radar/) — beamforming, range–Doppler processing, cell averaging, and CA-CFAR.
 2. [Microphone-array audio](https://briday1.github.io/signal-processing-visualization/audio/) — delay-and-sum steering, spectra, noise estimation, and tone tracking.
@@ -12,6 +12,8 @@
 6. [LFM pulse compression](https://briday1.github.io/signal-processing-visualization/pulse-compression/) — 1D chirp, complex echo, matched filtering, CA-CFAR, and detections.
 7. [Audio FIR equalizer](https://briday1.github.io/signal-processing-visualization/equalizer/) — 1D waveforms, windowed-sinc coefficients, convolution, and power spectra.
 8. [Rolling-bearing diagnostics](https://briday1.github.io/signal-processing-visualization/bearing/) — 1D vibration, resonance filtering, analytic envelope, and fault harmonics.
+9. [Acoustic source localization](https://briday1.github.io/signal-processing-visualization/localization/) — a 1D reference, 2D microphone capture, 3D steered time–frequency cube, 2D beam energy, and 1D direction score.
+10. [OFDM receiver quality](https://briday1.github.io/signal-processing-visualization/ofdm/) — a 1D I/Q capture, 3D resource grid, 2D EVM and error maps, and 1D subcarrier quality.
 
 GitHub Actions regenerates that example from `examples/radar.py` and deploys it to Pages on every push to `main`. You can create the same serverless bundle yourself with `spviz export-static RUN_DIR OUTPUT_DIR`.
 
