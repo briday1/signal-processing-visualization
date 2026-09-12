@@ -36,6 +36,8 @@ The inspector can export the selected axis-labeled layer as PNG, the current tra
 
 The pixel-density control trades fidelity for interaction speed using an explicit samples-per-displayed-axis count. Its maximum is the selected plane's largest native dimension, which requests the full plane without downsampling. The pipeline overview remains fixed at a lightweight 64 samples per axis.
 
+The aspect-ratio control offers **Data proportions** (the normal array width-to-height ratio), **Equal axes** (a square display extent), and **Fit view** (fill the available inspector area).
+
 ## Observe your existing pipeline
 
 ```python

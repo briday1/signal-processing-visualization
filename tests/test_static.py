@@ -19,6 +19,7 @@ class StaticExportTests(unittest.TestCase):
 
             self.assertTrue((site / "index.html").is_file())
             self.assertIn('option value="viridis"', (site / "index.html").read_text())
+            self.assertIn('option value="equal"', (site / "index.html").read_text())
             self.assertIn("SPVIZ_STATIC_BASE", (site / "config.js").read_text())
             self.assertIn("SPVIZ_GALLERY_URL", (site / "config.js").read_text())
             manifest = json.loads((site / "data" / "run.json").read_text())

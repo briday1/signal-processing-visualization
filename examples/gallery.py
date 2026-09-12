@@ -59,22 +59,29 @@ def generate_comms(path: Path) -> Path:
     n = np.arange(symbols * sps)
     raw = np.stack([up * np.exp(1j * (0.035 * n + .22 * antenna)) for antenna in range(antennas)])
     raw += 0.18 * (rng.normal(size=raw.shape) + 1j * rng.normal(size=raw.shape))
+    raw[:, [6, 13, 17]] += 0.7 * (rng.normal(size=(antennas, 3, symbols * sps)) + 1j * rng.normal(size=(antennas, 3, symbols * sps)))
+    raw[:, [6, 13, 17]] *= np.exp(1j * 1.05)  # unresolved burst phase slips
     rec = spviz.init(path, name="QPSK burst receiver", metadata={"seed": 19})
     v0, v1 = limits(raw, 5, 99.8)
-    spviz.tap(raw, "Antenna I/Q", axes=["antenna", "burst", "sample"], units="normalized voltage", vmin=v0, vmax=v1)
+    spviz.tap(raw, "Antenna I/Q frames", axes=["antenna", "burst", "sample"], view_axes=["burst", "antenna", "sample"], units="normalized voltage", vmin=v0, vmax=v1)
     corrected = raw * np.exp(-1j * 0.035 * n)[None, None, :]
     v0, v1 = limits(corrected, 5, 99.8)
-    spviz.tap(corrected, "Carrier-corrected I/Q", axes=["antenna", "burst", "sample"], operation="frequency derotation", inputs=raw, vmin=v0, vmax=v1)
+    spviz.tap(corrected, "Carrier-corrected frames", axes=["antenna", "burst", "sample"], view_axes=["burst", "antenna", "sample"], operation="frequency derotation", inputs=raw, vmin=v0, vmax=v1)
     kernel = np.ones(sps) / sps
     matched = np.apply_along_axis(lambda x: np.convolve(x, kernel, mode="same"), 2, corrected)
     v0, v1 = limits(matched, 20, 99.5)
-    spviz.tap(matched, "Matched-filter output", axes=["antenna", "burst", "sample"], operation="rectangular matched filter", inputs=corrected, vmin=v0, vmax=v1)
-    sampled = matched[:, :, sps - 1 :: sps]
-    error = np.abs(sampled - np.exp(1j * np.angle(sampled)).clip(-1, 1))
-    v0, v1 = limits(error, 45, 99.5)
-    spviz.tap(error, "Symbol error magnitude", axes=["antenna", "burst", "symbol"], operation="symbol sampling", inputs=matched, scale="log", vmin=max(v0, 1e-5), vmax=v1)
-    decisions = (error > np.percentile(error, 92)).astype(np.uint8)
-    spviz.tap(decisions, "High-error symbols", axes=["antenna", "burst", "symbol"], operation="error threshold", inputs=error, units="binary", vmin=0, vmax=1)
+    spviz.tap(matched, "Matched-filter frames", axes=["antenna", "burst", "sample"], view_axes=["burst", "antenna", "sample"], operation="rectangular matched filter", inputs=corrected, vmin=v0, vmax=v1)
+    antenna_phase = np.exp(-1j * .22 * np.arange(antennas))[:, None, None]
+    sampled = np.mean(matched * antenna_phase, axis=0)[:, 2::sps][:, :symbols]
+    edges = np.linspace(-1.8, 1.8, 49)
+    centers = (edges[:-1] + edges[1:]) / 2
+    constellation = np.stack([np.histogram2d(frame.imag, frame.real, bins=(edges, edges))[0] for frame in sampled]).astype(np.float32)
+    spviz.tap(constellation, "Constellation density", axes=["burst", "quadrature", "in-phase"], coordinates={"burst": np.arange(bursts), "quadrature": centers, "in-phase": centers}, operation="symbol sampling + I/Q histogram", inputs=matched, scale="log", vmin=0.35, vmax=float(max(1, constellation.max())))
+    references = np.exp(1j * (np.pi / 4 + np.arange(4) * np.pi / 2))
+    decisions = np.argmin(np.abs(sampled[:, :, None] - references[None, None, :]), axis=2)
+    symbol_errors = decisions != bits
+    error_density = np.stack([np.histogram2d(frame.imag[symbol_errors[index]], frame.real[symbol_errors[index]], bins=(edges, edges))[0] for index, frame in enumerate(sampled)]).astype(np.float32)
+    spviz.tap(error_density, "Decision-error density", axes=["burst", "quadrature", "in-phase"], coordinates={"burst": np.arange(bursts), "quadrature": centers, "in-phase": centers}, operation="hard decisions vs transmitted symbols", inputs=constellation, units="errors/bin", vmin=0, vmax=float(max(1, error_density.max())), metadata={"total_symbol_errors": int(symbol_errors.sum())})
     rec.close()
     return path
 

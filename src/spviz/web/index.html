@@ -16,6 +16,7 @@
       <div class="export-actions" aria-label="Export figures"><button id="save-layer" type="button">Save layer PNG</button><button id="save-stack" type="button">Save stack PNG</button><button id="save-animation" type="button">Save animation GIF</button><button id="save-chain" type="button">Save full chain</button></div>
       <div class="inspect-grid"><div class="volume-wrap"><canvas id="volume" aria-label="Transparent data volume"></canvas><div id="volume-status" class="loading-status" role="status" aria-live="polite"></div></div><aside>
         <label>Axis order<select id="permutation"></select></label>
+        <label>Aspect ratio<select id="aspect"><option value="data">Data proportions</option><option value="equal">Equal axes</option><option value="fit">Fit view</option></select></label>
         <label>Selected layer <output id="layer-output"></output><input id="layer" type="range" min="0" value="0"></label>
         <label class="check"><input id="isolate" type="checkbox"> Isolate selected layer</label>
         <label>Current layer <output id="current-opacity-output">100%</output><input id="current-opacity" type="range" min="0" max="100" value="100"></label>
