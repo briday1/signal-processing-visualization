@@ -157,6 +157,19 @@ function setVolumeStatus(message, error = false) {
   status.classList.toggle("error", error);
   $("volume").setAttribute("aria-busy", String(Boolean(message) && !error));
 }
+function resetVolumeGeometry() {
+  $("volume")._geometry = null;
+}
+function clearVolumeCanvas() {
+  const canvas = $("volume"),
+    width = canvas.width,
+    height = canvas.height;
+  if (width || height) {
+    canvas.width = width;
+    canvas.height = height;
+  }
+  resetVolumeGeometry();
+}
 function qualityLimit() {
   return state.pixelDensity;
 }
@@ -619,7 +632,7 @@ function syncFixedDimensionControls() {
       state.fixedIndices.set(axis, +input.value);
       updateLabel();
       $("cell").textContent = "Click a cell";
-      $("volume")._geometry = null;
+      resetVolumeGeometry();
       setVolumeStatus("Loading fixed slice…");
       clearTimeout(qualityTimer);
       qualityTimer = setTimeout(scheduleDraw, 110);
@@ -1213,86 +1226,98 @@ function handleViewerError(error) {
   setVolumeStatus(`Unable to load: ${error.message}`, true);
 }
 async function build() {
-  state.run = await checkedJson(
-    staticBase ? `${staticBase}/run.json` : "/api/run",
-  );
-  if (!state.run || !Array.isArray(state.run.products))
-    throw new Error("Run manifest does not contain a product list");
-  $("run-name").textContent = state.run.name;
-  $("run-meta").textContent =
-    `${state.run.products.length} captured products · ${state.run.created_at}`;
-  const pipeline = $("pipeline");
-  pipeline.replaceChildren();
-  if (!state.run.products.length) {
-    const empty = document.createElement("p");
-    empty.className = "empty-state";
-    empty.textContent = "This run does not contain any captured products yet.";
-    pipeline.append(empty);
-    $("inspector").hidden = true;
-    return;
-  }
-  for (let i = 0; i < state.run.products.length; i++) {
-    const product = state.run.products[i];
-    if (i) {
-      const edge = document.createElement("div"),
-        operation = document.createElement("span"),
-        upstream = Array.isArray(product.upstream) ? product.upstream : [],
-        previous = state.run.products[i - 1],
-        directlyConnected = upstream.includes(previous.id),
-        upstreamNames = upstream.map(
-          (id) =>
-            state.run.products.find((entry) => entry.id === id)?.name || id,
-        );
-      edge.className = directlyConnected ? "edge" : "edge disconnected";
-      operation.textContent = directlyConnected
-        ? `${product.operation || "transform"}${upstreamNames.length > 1 ? ` · inputs ${upstreamNames.join(", ")}` : ""}`
-        : upstreamNames.length
-          ? `${product.operation || "transform"} · from ${upstreamNames.join(", ")}`
-          : "independent capture";
-      edge.setAttribute("role", "img");
-      edge.setAttribute(
-        "aria-label",
-        directlyConnected
-          ? `${product.name} receives ${upstreamNames.join(", ")} via ${product.operation || "transform"}`
-          : upstreamNames.length
-            ? `${product.name} comes from ${upstreamNames.join(", ")}`
-            : `${product.name} has no recorded upstream product`,
-      );
-      edge.append(operation);
-      pipeline.append(edge);
+  const inspector = $("inspector"),
+    previousInspectorHidden = inspector.hidden;
+  inspector.hidden = true;
+  clearVolumeCanvas();
+  $("cell").textContent = "Click a cell";
+  setVolumeStatus("Loading run…");
+  try {
+    state.run = await checkedJson(
+      staticBase ? `${staticBase}/run.json` : "/api/run",
+    );
+    if (!state.run || !Array.isArray(state.run.products))
+      throw new Error("Run manifest does not contain a product list");
+    $("run-name").textContent = state.run.name;
+    $("run-meta").textContent =
+      `${state.run.products.length} captured products · ${state.run.created_at}`;
+    const pipeline = $("pipeline");
+    pipeline.replaceChildren();
+    if (!state.run.products.length) {
+      const empty = document.createElement("p");
+      empty.className = "empty-state";
+      empty.textContent = "This run does not contain any captured products yet.";
+      pipeline.append(empty);
+      $("inspector").hidden = true;
+      return;
     }
-    const button = document.createElement("button"),
-      canvas = document.createElement("canvas"),
-      status = document.createElement("span"),
-      title = document.createElement("strong"),
-      details = document.createElement("span");
-    button.className = "product";
-    button.type = "button";
-    button.setAttribute("aria-pressed", "false");
-    canvas.setAttribute("aria-hidden", "true");
-    status.className = "product-status";
-    status.textContent = "Loading preview…";
-    title.textContent = product.name;
-    details.textContent = `${product.shape.join(" × ")} · ${product.dtype}`;
-    button.append(canvas, status, title, details);
-    button.onclick = () => {
-      if (status.classList.contains("error"))
-        drawOverview(product, canvas).catch(() => {});
-      selectProduct(product).catch(handleViewerError);
-    };
-    pipeline.append(button);
-    drawOverview(product, canvas).catch(() => {});
+    for (let i = 0; i < state.run.products.length; i++) {
+      const product = state.run.products[i];
+      if (i) {
+        const edge = document.createElement("div"),
+          operation = document.createElement("span"),
+          upstream = Array.isArray(product.upstream) ? product.upstream : [],
+          previous = state.run.products[i - 1],
+          directlyConnected = upstream.includes(previous.id),
+          upstreamNames = upstream.map(
+            (id) =>
+              state.run.products.find((entry) => entry.id === id)?.name || id,
+          );
+        edge.className = directlyConnected ? "edge" : "edge disconnected";
+        operation.textContent = directlyConnected
+          ? `${product.operation || "transform"}${upstreamNames.length > 1 ? ` · inputs ${upstreamNames.join(", ")}` : ""}`
+          : upstreamNames.length
+            ? `${product.operation || "transform"} · from ${upstreamNames.join(", ")}`
+            : "independent capture";
+        edge.setAttribute("role", "img");
+        edge.setAttribute(
+          "aria-label",
+          directlyConnected
+            ? `${product.name} receives ${upstreamNames.join(", ")} via ${product.operation || "transform"}`
+            : upstreamNames.length
+              ? `${product.name} comes from ${upstreamNames.join(", ")}`
+              : `${product.name} has no recorded upstream product`,
+        );
+        edge.append(operation);
+        pipeline.append(edge);
+      }
+      const button = document.createElement("button"),
+        canvas = document.createElement("canvas"),
+        status = document.createElement("span"),
+        title = document.createElement("strong"),
+        details = document.createElement("span");
+      button.className = "product";
+      button.type = "button";
+      button.setAttribute("aria-pressed", "false");
+      canvas.setAttribute("aria-hidden", "true");
+      status.className = "product-status";
+      status.textContent = "Loading preview…";
+      title.textContent = product.name;
+      details.textContent = `${product.shape.join(" × ")} · ${product.dtype}`;
+      button.append(canvas, status, title, details);
+      button.onclick = () => {
+        if (status.classList.contains("error"))
+          drawOverview(product, canvas).catch(() => {});
+        selectProduct(product).catch(handleViewerError);
+      };
+      pipeline.append(button);
+      drawOverview(product, canvas).catch(() => {});
+    }
+    await selectProduct(
+      state.run.products[Math.min(2, state.run.products.length - 1)],
+    );
+  } catch (error) {
+    inspector.hidden = previousInspectorHidden;
+    throw error;
   }
-  await selectProduct(
-    state.run.products[Math.min(2, state.run.products.length - 1)],
-  );
 }
 async function selectProduct(product) {
   if (!product) throw new Error("No data product was selected");
   stopPlayback();
   clearTimeout(qualityTimer);
   $("inspector").hidden = false;
-  $("volume")._geometry = null;
+  clearVolumeCanvas();
+  setVolumeStatus("Loading data…");
   $("cell").textContent = "Click a cell";
   state.product = product;
   state.viewAxes = (product.view_axes || product.axes.slice(0, 3)).map((name) =>
@@ -1455,7 +1480,7 @@ async function drawVolume(version) {
   const canvas = $("volume"),
     product = state.product;
   if (!product) return;
-  canvas._geometry = null;
+  resetVolumeGeometry();
   const perm = [...state.perm],
     selectedLayer = state.layer,
     sliced2D = perm.length === 2 && state.viewMode === "slices",
@@ -1857,7 +1882,7 @@ $("permutation").onchange = (event) => {
 $("layer").oninput = (event) => {
   state.layer = +event.target.value;
   syncLayer();
-  $("volume")._geometry = null;
+  resetVolumeGeometry();
   setVolumeStatus("Loading layer…");
   clearTimeout(qualityTimer);
   qualityTimer = setTimeout(scheduleDraw, 45);
@@ -1935,7 +1960,7 @@ $("quality").oninput = (event) => {
   state.pixelDensity = +event.target.value;
   $("quality-output").textContent =
     `${state.pixelDensity} / ${event.target.max} px`;
-  $("volume")._geometry = null;
+  resetVolumeGeometry();
   setVolumeStatus("Updating detail…");
   clearTimeout(qualityTimer);
   qualityTimer = setTimeout(scheduleDraw, 110);
