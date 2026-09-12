@@ -1222,13 +1222,20 @@ function handleViewerError(error) {
   setVolumeStatus(`Unable to load: ${error.message}`, true);
 }
 async function build() {
-  $("inspector").hidden = true;
+  const inspector = $("inspector"),
+    previousInspectorHidden = inspector.hidden;
+  inspector.hidden = true;
   clearVolumeCanvas();
   $("cell").textContent = "Click a cell";
   setVolumeStatus("");
-  state.run = await checkedJson(
-    staticBase ? `${staticBase}/run.json` : "/api/run",
-  );
+  try {
+    state.run = await checkedJson(
+      staticBase ? `${staticBase}/run.json` : "/api/run",
+    );
+  } catch (error) {
+    inspector.hidden = previousInspectorHidden;
+    throw error;
+  }
   if (!state.run || !Array.isArray(state.run.products))
     throw new Error("Run manifest does not contain a product list");
   $("run-name").textContent = state.run.name;
