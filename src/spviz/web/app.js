@@ -1227,7 +1227,7 @@ async function build() {
   inspector.hidden = true;
   clearVolumeCanvas();
   $("cell").textContent = "Click a cell";
-  setVolumeStatus("");
+  setVolumeStatus("Loading run…");
   try {
     state.run = await checkedJson(
       staticBase ? `${staticBase}/run.json` : "/api/run",
