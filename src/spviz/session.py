@@ -64,6 +64,7 @@ class Session:
         coordinates: dict[str | int, Any] | None = None,
         filename: str | Path | None = None,
         scale: str = "linear",
+        overview_aspect: str | None = None,
         vmin: float | None = None,
         vmax: float | None = None,
         operation: str | None = None,
@@ -77,6 +78,8 @@ class Session:
         axis_names = list(axes or (f"axis_{i}" for i in range(array.ndim)))
         if scale not in {"linear", "log"}:
             raise ValueError("scale must be 'linear' or 'log'")
+        if overview_aspect not in {None, "data", "equal", "fit"}:
+            raise ValueError("overview_aspect must be 'data', 'equal', or 'fit'")
         if vmin is not None and not np.isfinite(vmin):
             raise ValueError("vmin must be finite")
         if vmax is not None and not np.isfinite(vmax):
@@ -191,6 +194,7 @@ class Session:
             "shape": list(array.shape),
             "dtype": str(array.dtype),
             "scale": scale,
+            "overview_aspect": overview_aspect,
             "display_min": float(vmin) if vmin is not None else None,
             "display_max": float(vmax) if vmax is not None else None,
             "bytes": int(array.nbytes),

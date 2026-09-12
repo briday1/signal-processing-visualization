@@ -109,6 +109,8 @@ beamformed = spviz.tap(beamform(iq), "Beamformed", inputs=iq)
 
 `scale=` sets the product's default visualization scale to `"linear"` (the default) or `"log"`. It initializes the inspector and is also honored by the full-chain overview. Users can still toggle the selected product interactively.
 
+`overview_aspect=` optionally overrides only that product's top processing-graph preview with `"data"`, `"equal"`, or `"fit"`. It does not change the product inspector. Without an override, the shared overview aspect control applies.
+
 `vmin=` and `vmax=` set a product's initial absolute display range. Values at or below `vmin` are fully transparent and then fade smoothly into the selected color map; this lets background/noise disappear into either the dark or light theme without discarding the underlying captured data. The viewer's range controls remain adjustable.
 
 For code where wrapping a function is convenient, optional instrumentation observes its return value while leaving invocation and scheduling with the original application:

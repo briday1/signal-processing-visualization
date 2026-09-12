@@ -130,6 +130,15 @@ class SessionTests(unittest.TestCase):
             manifest = json.loads((run_path / "manifest.json").read_text())
             self.assertEqual([product["scale"] for product in manifest["products"]], ["linear", "log"])
 
+    def test_product_overview_aspect(self):
+        with tempfile.TemporaryDirectory() as directory:
+            with spviz.Session(Path(directory) / "run") as run:
+                run.capture("fit", np.ones((2, 8)), overview_aspect="fit")
+                with self.assertRaisesRegex(ValueError, "overview_aspect must"):
+                    run.capture("bad", np.ones((2, 8)), overview_aspect="wide")
+            manifest = json.loads((Path(directory) / "run" / "manifest.json").read_text())
+            self.assertEqual(manifest["products"][0]["overview_aspect"], "fit")
+
     def test_product_display_limits(self):
         with tempfile.TemporaryDirectory() as directory:
             run_path = Path(directory) / "run"

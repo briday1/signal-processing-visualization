@@ -249,7 +249,7 @@ def generate_localization(path: Path) -> Path:
     v0, v1 = trace_limits(reference)
     spviz.tap(reference, "Reference chirp", axes=["time"], coordinates={"time": {"values": reference_time*1e3, "units": "ms"}}, units="amplitude", vmin=v0, vmax=v1)
     v0, v1 = limits(recording, 20, 99.8)
-    spviz.tap(recording, "Microphone recording", axes=["microphone", "time"], coordinates={"microphone": np.arange(microphones), "time": {"values": time*1e3, "units": "ms"}}, operation="array capture", inputs=reference, units="amplitude", vmin=v0, vmax=v1)
+    spviz.tap(recording, "Microphone recording", axes=["microphone", "time"], coordinates={"microphone": np.arange(microphones), "time": {"values": time*1e3, "units": "ms"}}, operation="array capture", inputs=reference, units="amplitude", vmin=v0, vmax=v1, overview_aspect="fit")
     angles = np.linspace(-60, 60, 25)
     frame_starts = np.arange(0, samples-128+1, 64)
     beam_spectra = np.empty((len(angles), len(frame_starts), 65), np.float32)
