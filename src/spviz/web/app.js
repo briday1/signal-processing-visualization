@@ -157,6 +157,12 @@ function setVolumeStatus(message, error = false) {
   status.classList.toggle("error", error);
   $("volume").setAttribute("aria-busy", String(Boolean(message) && !error));
 }
+function clearVolumeCanvas() {
+  const canvas = $("volume"),
+    context = canvas.getContext("2d");
+  if (context) context.clearRect(0, 0, canvas.width, canvas.height);
+  canvas._geometry = null;
+}
 function qualityLimit() {
   return state.pixelDensity;
 }
@@ -1213,6 +1219,10 @@ function handleViewerError(error) {
   setVolumeStatus(`Unable to load: ${error.message}`, true);
 }
 async function build() {
+  $("inspector").hidden = true;
+  clearVolumeCanvas();
+  $("cell").textContent = "Click a cell";
+  setVolumeStatus("");
   state.run = await checkedJson(
     staticBase ? `${staticBase}/run.json` : "/api/run",
   );
@@ -1292,7 +1302,8 @@ async function selectProduct(product) {
   stopPlayback();
   clearTimeout(qualityTimer);
   $("inspector").hidden = false;
-  $("volume")._geometry = null;
+  clearVolumeCanvas();
+  setVolumeStatus("Loading data…");
   $("cell").textContent = "Click a cell";
   state.product = product;
   state.viewAxes = (product.view_axes || product.axes.slice(0, 3)).map((name) =>
