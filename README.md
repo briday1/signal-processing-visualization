@@ -33,7 +33,7 @@ Choose a different port with either `--port` or `-p`:
 spviz serve runs/radar-demo --port 9000
 ```
 
-Open <http://127.0.0.1:8765>. Click any product without losing the pipeline overview, permute axes, scrub or animate layers, isolate a layer, adjust the opacity of other layers, and inspect individual values. Three-dimensional stacks use projected yaw and pitch geometry, so horizontal and vertical dragging rotate and nutate the data volume instead of merely shifting its layers. Two-dimensional products can switch between a heatmap and stacked 1D slices; axis order selects which dimension becomes the playable layer axis.
+Open <http://127.0.0.1:8765>. Click any product without losing the pipeline overview, permute axes, scrub or animate layers, isolate a layer, adjust the opacity of other layers, and inspect individual values. Horizontal and vertical dragging adjust the 3D stack separation within constrained inspection bounds, while double-clicking restores the home view. Two-dimensional products can switch between a heatmap and stacked 1D slices; axis order selects which dimension becomes the playable layer axis.
 
 The viewer includes dark and light interface themes plus Spviz, Viridis, Plasma, Inferno, Magma, and Cividis color maps. The latter five use the familiar Matplotlib palette endpoints; values at or below the selected minimum remain transparent so the chosen page theme forms the visualization's low-end background.
 
