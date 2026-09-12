@@ -2,24 +2,46 @@
 
 `spviz` is a TensorBoard-style observer for intermediate signal-processing data products. Your application continues to own execution, scheduling, and data flow. `spviz` only taps values that the application already produced, records their semantic axes and lineage, and serves an interactive visualization afterward.
 
-**[Explore all ten live examples](https://briday1.github.io/signal-processing-visualization/)**
+**[Explore all fourteen live examples](https://briday1.github.io/signal-processing-visualization/)**
+
+## What it looks like
+
+![Transparent Range–Doppler volume with physical axes and interactive controls](https://raw.githubusercontent.com/briday1/signal-processing-visualization/main/docs/images/radar-volume.png)
+
+*A real synthetic phased-array data cube, with the selected plane in focus and the full processing context still visible.*
+
+![GNSS Doppler/code-phase acquisition map](https://raw.githubusercontent.com/briday1/signal-processing-visualization/main/docs/images/gnss-acquisition.png)
+
+![One-dimensional FIR low-pass signal-processing chain](https://raw.githubusercontent.com/briday1/signal-processing-visualization/main/docs/images/fir-lowpass.png)
 
 1. [Phased-array radar](https://briday1.github.io/signal-processing-visualization/radar/) — beamforming, range–Doppler processing, cell averaging, and CA-CFAR.
-2. [Microphone-array audio](https://briday1.github.io/signal-processing-visualization/audio/) — delay-and-sum steering, spectra, noise estimation, and tone tracking.
-3. [QPSK receiver](https://briday1.github.io/signal-processing-visualization/comms/) — carrier correction, matched filtering, symbol error magnitude, and decisions.
+2. [Microphone-array audio](https://briday1.github.io/signal-processing-visualization/audio/) — delay-and-sum steering, spectra, noise estimation, and tone-candidate detection.
+3. [QPSK receiver](https://briday1.github.io/signal-processing-visualization/comms/) — carrier correction, matched filtering, sampled symbol phases, constellation density, and decision errors.
 4. [Seismic array](https://briday1.github.io/signal-processing-visualization/seismic/) — trace filtering, spectra, event-energy integration, and triggering.
-5. [Multi-lead ECG](https://briday1.github.io/signal-processing-visualization/ecg/) — baseline removal, QRS enhancement, energy integration, and peak candidates.
+5. [Multi-lead ECG](https://briday1.github.io/signal-processing-visualization/ecg/) — baseline removal, QRS enhancement, energy integration, and one R-peak detection per aligned beat.
 6. [LFM pulse compression](https://briday1.github.io/signal-processing-visualization/pulse-compression/) — 1D chirp, complex echo, matched filtering, CA-CFAR, and detections.
-7. [Audio FIR equalizer](https://briday1.github.io/signal-processing-visualization/equalizer/) — 1D waveforms, windowed-sinc coefficients, convolution, and power spectra.
+7. [Audio FIR low-pass](https://briday1.github.io/signal-processing-visualization/equalizer/) — 1D waveforms, windowed-sinc low-pass coefficients, convolution, and power spectra.
 8. [Rolling-bearing diagnostics](https://briday1.github.io/signal-processing-visualization/bearing/) — 1D vibration, resonance filtering, analytic envelope, and fault harmonics.
 9. [Acoustic source localization](https://briday1.github.io/signal-processing-visualization/localization/) — a 1D reference, 2D microphone capture, 3D steered time–frequency cube, 2D beam energy, and 1D direction score.
 10. [OFDM receiver quality](https://briday1.github.io/signal-processing-visualization/ofdm/) — a 1D I/Q capture, 3D resource grid, 2D EVM and error maps, and 1D subcarrier quality.
+11. [GPS acquisition](https://briday1.github.io/signal-processing-visualization/gnss/) — a real GPS L1 C/A Gold code, noisy multipath I/Q, coherent correlations, acquisition cuts, and detection.
+12. [Ultrasound B-mode](https://briday1.github.io/signal-processing-visualization/ultrasound/) — pulse-echo channel RF, fractional-delay focusing, coherent beamforming, envelope detection, and reflector picks.
+13. [CT reconstruction](https://briday1.github.io/signal-processing-visualization/ct/) — a modified Shepp–Logan phantom, noisy Radon projections, Ram–Lak filtering, per-angle backprojections, and reconstruction.
+14. [Polyphase channelizer](https://briday1.github.io/signal-processing-visualization/channelizer/) — intermittent wideband emitters through a true four-tap PFB/FFT, integration, activity detection, and occupancy.
 
-GitHub Actions regenerates that example from `examples/radar.py` and deploys it to Pages on every push to `main`. You can create the same serverless bundle yourself with `spviz export-static RUN_DIR OUTPUT_DIR`.
+GitHub Actions regenerates the complete gallery from `examples/radar.py`, `examples/gallery.py`, and `examples/advanced_gallery.py`, then deploys it to Pages on every push to `main`. You can create the same serverless bundle yourself with `spviz export-static RUN_DIR OUTPUT_DIR`.
 
-## Install and run the radar example
+## Install
 
 ```bash
+pip install spviz
+```
+
+To run the repository's radar example locally:
+
+```bash
+git clone https://github.com/briday1/signal-processing-visualization.git
+cd signal-processing-visualization
 python -m venv .venv
 . .venv/bin/activate
 pip install -e .
@@ -33,15 +55,15 @@ Choose a different port with either `--port` or `-p`:
 spviz serve runs/radar-demo --port 9000
 ```
 
-Open <http://127.0.0.1:8765>. Click any product without losing the pipeline overview, permute axes, scrub or animate layers, isolate a layer, adjust the opacity of other layers, and inspect individual values. Horizontal and vertical dragging adjust the 3D stack separation within constrained inspection bounds, while double-clicking restores the home view. Two-dimensional products can switch between a heatmap and stacked 1D slices; axis order selects which dimension becomes the playable layer axis.
+Open the URL printed by the server (default: <http://127.0.0.1:8765>). Click any product without losing the pipeline overview, permute axes, scrub or animate layers, isolate a layer, adjust the opacity of other layers, and inspect individual values. Horizontal and vertical dragging adjust the 3D stack separation within constrained inspection bounds, while double-clicking restores the home view. Two-dimensional products can switch between a heatmap and stacked 1D slices; axis order selects which dimension becomes the playable layer axis.
 
-The viewer includes dark and light interface themes plus Spviz, Viridis, Plasma, Inferno, Magma, and Cividis color maps. The latter five use the familiar Matplotlib palette endpoints; values at or below the selected minimum remain transparent so the chosen page theme forms the visualization's low-end background.
+The viewer includes dark and light interface themes plus Spviz, Viridis, Plasma, Inferno, Magma, Cividis, Coolwarm, and Twilight color maps. Sequential maps fade their low end into the page theme, signed fields automatically use a zero-centered diverging map with zero transparent, and phase uses an opaque cyclic map. `NaN` remains transparent in every mode, so undefined CFAR edges and masked samples stay visually honest.
 
 The inspector can export the selected axis-labeled layer as PNG, the current transparent stack as PNG, an animated GIF sweep through the selected depth axis, or the complete processing chain as PNG. Exports preserve the active axis permutation, coordinates, units, color limits, log mode, transparency, and selected layer where applicable.
 
-The pixel-density control trades fidelity for interaction speed using an explicit samples-per-displayed-axis count. Its maximum is the selected plane's largest native dimension, which requests the full plane without downsampling. The pipeline overview remains fixed at a lightweight 64 samples per axis.
+The pixel-density control trades fidelity for interaction speed using an explicit samples-per-displayed-axis count. Small and medium products reach exact native resolution; very large dynamic runs use a 1024-pixel-per-axis visual safety ceiling so one gesture cannot allocate an unbounded browser canvas. The pipeline overview remains fixed at a lightweight 64 samples per axis.
 
-The inspector aspect-ratio control offers **Data proportions** (the normal array width-to-height ratio), **Equal axes** (a square display extent), and **Fit view** (fill the available inspector area). The processing overview has a separate aspect control and defaults to data-proportional previews. Clicking a product initializes its inspector from that product's effective overview aspect; subsequent inspector changes remain independent.
+The inspector aspect-ratio control offers **Data proportions** (the normal array width-to-height ratio), **Equal axes** (a square display extent), and **Fit view** (fill the available inspector area). The processing overview has a separate aspect control and defaults to data-proportional previews. Overview settings affect only the top processing graph; every product inspector opens independently in Data proportions mode.
 
 ## Observe your existing pipeline
 
@@ -53,7 +75,13 @@ spviz.init("runs/my-run", name="My receiver")
 
 # These functions belong to your application. spviz does not call them.
 iq = read_receiver()
-spviz.tap(iq, "Raw I/Q", axes=["channel", "pulse", "sample"], units="volts")
+spviz.tap(
+    iq,
+    "Raw I/Q",
+    axes=["channel", "pulse", "sample"],
+    representation="magnitude",
+    units="volts",
+)
 
 beamformed = beamform(iq)
 spviz.tap(
@@ -97,7 +125,7 @@ spviz.tap(
 )
 ```
 
-Coordinates may be numeric, categorical, or temporal. They are stored as separate NumPy arrays and loaded only when needed. The inspector presents permutations using axis names—not anonymous dimension numbers—and displays coordinate ranges, physical layer values, units, and coordinates for selected cells. Non-view dimensions remain part of the captured product and are indexed at zero by the current viewer.
+Coordinates may be numeric, categorical, or temporal. They are stored as separate NumPy arrays and loaded only when needed; long evenly spaced axes travel as compact start/step descriptions. The inspector presents permutations using axis names—not anonymous dimension numbers—and displays coordinate ranges, physical layer values, units, and coordinates for selected cells. For products above three dimensions, live-server controls for every non-view axis select the fixed source index without changing the three spatial axes. Static bundles preserve the captured default index for those extra dimensions, avoiding a combinatorial export for large tensors.
 
 `tap()` returns the exact object it receives, so it can also be inserted inline without changing the chain:
 
@@ -109,9 +137,13 @@ beamformed = spviz.tap(beamform(iq), "Beamformed", inputs=iq)
 
 `scale=` sets the product's default visualization scale to `"linear"` (the default) or `"log"`. It initializes the inspector and is also honored by the full-chain overview. Users can still toggle the selected product interactively.
 
+`representation=` controls how scalar display values are derived without modifying the captured array. `"auto"` (the default) preserves signed real data and shows magnitude for complex data. Explicit choices are `"real"`, `"imag"`, `"magnitude"`, `"power"`, and `"phase"`; imaginary and phase views require complex-valued input. The choice applies consistently to 1D traces, maps, stacks, statistics, and exports.
+
+`statistics=` controls the one-time range scan performed during capture. `"exact"` is the default and gives the range sliders true whole-product limits. `"sampled"` bounds that scan to roughly one million uniformly distributed values for very large products. `"none"` skips it completely and therefore requires explicit `vmin=` and `vmax=`. Rendering itself remains bounded independently of this capture-time choice.
+
 `overview_aspect=` optionally overrides only that product's top processing-graph preview with `"data"`, `"equal"`, or `"fit"`. It does not change the product inspector. Without an override, the shared overview aspect control applies.
 
-`vmin=` and `vmax=` set a product's initial absolute display range. Values at or below `vmin` are fully transparent and then fade smoothly into the selected color map; this lets background/noise disappear into either the dark or light theme without discarding the underlying captured data. The viewer's range controls remain adjustable.
+`vmin=` and `vmax=` set a product's initial absolute display range. In sequential maps, values at or below `vmin` are fully transparent and then fade smoothly into the selected color map; this lets background/noise disappear into either the dark or light theme without discarding the underlying captured data. Signed, phase, and binary products use their corresponding diverging, cyclic, and categorical opacity semantics. The viewer's range controls remain adjustable.
 
 For code where wrapping a function is convenient, optional instrumentation observes its return value while leaving invocation and scheduling with the original application:
 
@@ -123,7 +155,15 @@ def filter_bank(iq):
     return existing_filter_implementation(iq)
 ```
 
-Observed runs are portable directories containing `manifest.json` and standard NumPy `.npy` files. The browser requests a resolution-limited visualization volume once, then changes layers locally for responsive interaction without loading the full source array.
+Observed runs are portable directories containing `manifest.json` and standard NumPy `.npy` files. Source arrays are memory-mapped by the viewer. It requests only a bounded context stack plus the exact selected plane, so interaction cost follows display resolution rather than total source size. Rapid density changes are coalesced, stale draws are ignored, and render caches are bounded.
+
+Run publication is transactional. `spviz.init(..., mode="replace")` (the default) stages a complete new run beside the destination and swaps it in only on explicit successful close. Use `mode="error"` when an existing destination should instead be treated as a mistake. For exception-aware automatic commit or rollback, use `Session` as a context manager.
+
+Static exports are staged and swapped into place only after a complete successful build. By default each axis permutation is capped at 16 MB and the run at 256 MB while preserving every selectable depth layer; only plane density is reduced when needed. Tune those budgets for unusually large products:
+
+```bash
+spviz export-static runs/my-run site --max-volume-mb 32 --max-total-mb 512
+```
 
 ## Current scope
 
@@ -132,6 +172,6 @@ Observed runs are portable directories containing `manifest.json` and standard N
 - Local, dependency-light HTTP server
 - Transparent stacked-slice volume rendering
 - Axis permutation, layer playback/isolation, opacity, and value inspection
-- Deterministic synthetic phased-array radar example with clutter, receiver mismatch, thermal noise, windowed FFTs, an explicit cell-average noise estimate, and binary CA-CFAR detections
+- Fourteen deterministic, physically grounded demonstrations spanning 1D, 2D, and 3D products
 
-This is an initial foundation. Live streaming, framework adapters, timeline comparison, GPU-side capture, and richer plots are intentionally left for later versions.
+Live streaming, framework adapters, timeline comparison, and GPU-side capture remain future work; captured-run inspection is the intentionally focused core.

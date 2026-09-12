@@ -1,4 +1,5 @@
 """Generate a realistic synthetic array-radar run for spviz."""
+
 from __future__ import annotations
 
 import argparse
@@ -44,8 +45,15 @@ def generate(output: Path, seed: int = 7) -> Path:
         iq += target["amplitude"] * scintillation * np.exp(1j * phase)
 
     # Low-Doppler distributed clutter and static leakage.
-    for clutter_range, clutter_angle, amplitude in [(4.2, -42, 0.12), (18.6, 3, 0.08), (36.1, 31, 0.06)]:
-        phase = 2 * np.pi * clutter_range * fast_time / samples + np.pi * channel * np.sin(np.deg2rad(clutter_angle))
+    for clutter_range, clutter_angle, amplitude in [
+        (4.2, -42, 0.12),
+        (18.6, 3, 0.08),
+        (36.1, 31, 0.06),
+    ]:
+        phase = (
+            2 * np.pi * clutter_range * fast_time / samples
+            + np.pi * channel * np.sin(np.deg2rad(clutter_angle))
+        )
         iq += amplitude * np.exp(1j * phase)
 
     gain = rng.normal(1.0, 0.025, receivers)[:, None, None]
@@ -66,10 +74,17 @@ def generate(output: Path, seed: int = 7) -> Path:
         scale="linear",
         vmin=float(np.percentile(np.abs(iq), 18)),
         vmax=float(np.percentile(np.abs(iq), 99.8)),
-        metadata={"description": "Calibrated complex ADC samples with thermal noise and distributed clutter."},
+        metadata={
+            "description": "Calibrated complex ADC samples with thermal noise and distributed clutter."
+        },
     )
 
-    steering = np.exp(-1j * np.pi * np.sin(np.deg2rad(look_angles[:, None])) * np.arange(receivers)[None, :])
+    steering = np.exp(
+        -1j
+        * np.pi
+        * np.sin(np.deg2rad(look_angles[:, None]))
+        * np.arange(receivers)[None, :]
+    )
     beamformed = np.einsum("ac,cps->aps", steering, iq, optimize=True) / receivers
     spviz.tap(
         beamformed,
@@ -85,7 +100,10 @@ def generate(output: Path, seed: int = 7) -> Path:
         vmin=float(np.percentile(np.abs(beamformed), 35)),
         vmax=float(np.percentile(np.abs(beamformed), 99.8)),
         inputs=iq,
-        metadata={"look_angles_deg": look_angles, "description": "Twenty-five conventional beamformer look directions."},
+        metadata={
+            "look_angles_deg": look_angles,
+            "description": "Twenty-five conventional beamformer look directions.",
+        },
     )
 
     range_window = np.hanning(samples)
@@ -110,11 +128,15 @@ def generate(output: Path, seed: int = 7) -> Path:
         scale="log",
         vmin=float(np.percentile(power, 55)),
         vmax=float(np.percentile(power, 99.9)),
-        metadata={"description": "Windowed and Doppler-centered range–Doppler power volume."},
+        metadata={
+            "description": "Windowed and Doppler-centered range–Doppler power volume."
+        },
     )
 
     # Compact 2D cell-averaging CFAR approximation per angle plane.
-    cell_average = np.zeros_like(power, dtype=np.float32)
+    # Edge cells lack a complete training window.  Keep them explicitly
+    # undefined instead of recording a physically meaningful-looking zero.
+    cell_average = np.full_like(power, np.nan, dtype=np.float32)
     detections = np.zeros_like(power, dtype=np.uint8)
     guard_d, guard_r, train_d, train_r = 1, 1, 3, 5
     for angle_index, plane in enumerate(power):
@@ -134,6 +156,7 @@ def generate(output: Path, seed: int = 7) -> Path:
                 if plane[doppler_index, range_index] > threshold:
                     detections[angle_index, doppler_index, range_index] = 1
 
+    valid_cell_average = cell_average[np.isfinite(cell_average)]
     spviz.tap(
         cell_average,
         "Cell-average noise estimate",
@@ -147,9 +170,11 @@ def generate(output: Path, seed: int = 7) -> Path:
         inputs=power,
         units="power",
         scale="log",
-        vmin=max(float(np.percentile(cell_average, 45)), 1e-12),
-        vmax=float(np.percentile(cell_average, 99.8)),
-        metadata={"description": "Local background-power estimate from CFAR training cells, excluding guard cells."},
+        vmin=max(float(np.percentile(valid_cell_average, 25)), 1e-12),
+        vmax=float(np.percentile(valid_cell_average, 99.8)),
+        metadata={
+            "description": "Local background-power estimate from CFAR training cells; edge cells without a complete training window are undefined."
+        },
     )
     spviz.tap(
         detections,
@@ -166,7 +191,9 @@ def generate(output: Path, seed: int = 7) -> Path:
         scale="linear",
         vmin=0,
         vmax=1,
-        metadata={"description": "Binary CA-CFAR decisions: 1 is a detection and 0 is background."},
+        metadata={
+            "description": "Binary CA-CFAR decisions: 1 is a detection and 0 is background."
+        },
     )
     recorder.session.metadata["targets"] = targets
     recorder.close()

@@ -1,22 +1,29 @@
 [build-system]
-requires = ["setuptools>=68"]
+requires = ["setuptools>=77"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "spviz"
-version = "0.1.0"
+version = "0.2.0"
 description = "TensorBoard-style data-product visualization for signal-processing pipelines"
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = ["numpy>=1.24"]
-license = {text = "MIT"}
+license = "MIT"
 authors = [{name = "Brian Day"}]
+keywords = ["signal-processing", "visualization", "numpy", "radar", "DSP"]
 classifiers = [
   "Programming Language :: Python :: 3",
   "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
 ]
+
+[project.urls]
+Homepage = "https://briday1.github.io/signal-processing-visualization/"
+Repository = "https://github.com/briday1/signal-processing-visualization"
+Issues = "https://github.com/briday1/signal-processing-visualization/issues"
 
 [project.scripts]
 spviz = "spviz.cli:main"
@@ -25,8 +32,13 @@ spviz = "spviz.cli:main"
 where = ["src"]
 
 [tool.setuptools.package-data]
-spviz = ["web/*"]
+spviz = ["py.typed", "web/*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 
+[tool.ruff]
+target-version = "py310"
+
+[tool.ruff.lint]
+ignore = ["PYI034"]  # typing.Self is unavailable on Python 3.10 without another dependency.

@@ -27,6 +27,8 @@ jobs:
           python-version: "3.12"
           cache: pip
       - run: pip install .
+      - run: python -m unittest discover -s tests -v
+      - run: node --check src/spviz/web/app.js && node --check src/spviz/web/gif.js
       - run: python examples/gallery.py --output build/site
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3

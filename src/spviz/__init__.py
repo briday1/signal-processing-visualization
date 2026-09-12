@@ -1,7 +1,29 @@
 """Passively observe and visualize signal-processing data products."""
 
 from .observer import Recorder, close, get_recorder, init, instrument, tap
-from .session import Session
+from .session import (
+    Aspect,
+    Representation,
+    Scale,
+    Session,
+    Statistics,
+    WriteMode,
+    capture,
+)
 
-__all__ = ["Recorder", "Session", "close", "get_recorder", "init", "instrument", "tap"]
-__version__ = "0.1.0"
+__all__ = [
+    "Aspect",
+    "Recorder",
+    "Representation",
+    "Scale",
+    "Session",
+    "Statistics",
+    "WriteMode",
+    "capture",
+    "close",
+    "get_recorder",
+    "init",
+    "instrument",
+    "tap",
+]
+__version__ = "0.2.0"

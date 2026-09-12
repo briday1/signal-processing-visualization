@@ -4,7 +4,6 @@ on:
   push:
     tags:
       - "v*"
-  workflow_dispatch:
 
 permissions:
   contents: read
@@ -18,11 +17,38 @@ jobs:
         with:
           python-version: "3.12"
           cache: pip
+      - name: Verify tag matches package version
+        run: |
+          VERSION=$(python -c "import tomllib; print(tomllib.load(open('pyproject.toml', 'rb'))['project']['version'])")
+          test "${GITHUB_REF_NAME}" = "v${VERSION}"
+      - name: Test source tree
+        run: |
+          python -m pip install .
+          python -m unittest discover -s tests -v
+          node --check src/spviz/web/app.js
+          node --check src/spviz/web/gif.js
       - name: Build distributions
         run: |
           python -m pip install --upgrade build twine
           python -m build
           python -m twine check dist/*
+      - name: Smoke-test the built wheel
+        run: |
+          python -m venv "$RUNNER_TEMP/spviz-wheel-smoke"
+          "$RUNNER_TEMP/spviz-wheel-smoke/bin/python" -m pip install dist/*.whl
+          "$RUNNER_TEMP/spviz-wheel-smoke/bin/python" - <<'PY'
+          from importlib.metadata import version
+          from importlib.resources import files
+
+          import spviz
+
+          assert spviz.__version__ == version("spviz")
+          package = files("spviz")
+          assert package.joinpath("py.typed").is_file()
+          for asset in ("index.html", "style.css", "range.css", "app.js", "gif.js"):
+              assert package.joinpath("web", asset).is_file(), asset
+          PY
+          "$RUNNER_TEMP/spviz-wheel-smoke/bin/spviz" --help
       - name: Publish to PyPI
         env:
           TWINE_USERNAME: __token__

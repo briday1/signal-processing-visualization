@@ -1,38 +1,240 @@
 <!doctype html>
 <html lang="en">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>spviz</title>
-  <link rel="stylesheet" href="./style.css">
-  <link rel="stylesheet" href="./range.css">
-</head>
-<body>
-  <header><div><h1 id="run-name">spviz</h1><p id="run-meta">Loading run…</p></div><div class="appearance"><a id="gallery-link" class="gallery-link" hidden>All examples</a><label>Theme<select id="theme"><option value="dark">Dark</option><option value="light">Light</option></select></label><label>Color map<select id="colormap"><option value="spviz">Spviz</option><option value="viridis">Viridis</option><option value="plasma">Plasma</option><option value="inferno">Inferno</option><option value="magma">Magma</option><option value="cividis">Cividis</option></select></label><div class="brand">SPVIZ</div></div></header>
-  <main>
-    <section aria-labelledby="pipeline-title"><div class="section-head"><div><h2 id="pipeline-title">Processing graph</h2><p>Click a data product to inspect its layers. Surface colors come from captured values.</p></div><label>Overview aspect<select id="overview-aspect"><option value="data">Data proportions</option><option value="equal">Equal axes</option><option value="fit">Fit cards</option></select></label></div><div id="pipeline" class="pipeline"></div></section>
-    <section id="inspector" class="inspector" aria-labelledby="inspect-title">
-      <div class="section-head"><div><h2 id="inspect-title">Inspector</h2><p id="inspect-description"></p></div><button id="play" type="button">Play layers</button></div>
-      <div class="export-actions" aria-label="Export figures"><button id="save-layer" type="button">Save layer PNG</button><button id="save-stack" type="button">Save stack PNG</button><button id="save-animation" type="button">Save animation GIF</button><button id="save-chain" type="button">Save full chain</button></div>
-      <div class="inspect-grid"><div class="volume-wrap"><canvas id="volume" aria-label="Transparent data volume" title="Drag to rotate; double-click to return home"></canvas><div id="volume-status" class="loading-status" role="status" aria-live="polite"></div></div><aside>
-        <label>Axis order<select id="permutation"></select></label>
-        <label>View<select id="view-mode"><option value="surface">Surface / heatmap</option><option value="slices">Stacked line slices</option></select></label>
-        <label>Aspect ratio<select id="aspect"><option value="data">Data proportions</option><option value="equal">Equal axes</option><option value="fit">Fit view</option></select></label>
-        <label>Selected layer <output id="layer-output"></output><input id="layer" type="range" min="0" value="0"></label>
-        <label class="check"><input id="isolate" type="checkbox"> Isolate selected layer</label>
-        <label>Current layer <output id="current-opacity-output">100%</output><input id="current-opacity" type="range" min="0" max="100" value="100"></label>
-        <label>Other layers <output id="opacity-output">25%</output><input id="opacity" type="range" min="0" max="100" value="25"></label>
-        <button id="link-opacity" type="button" aria-pressed="false">Link transparency: off</button>
-        <label>Pixel density <output id="quality-output">96 px/axis</output><input id="quality" type="range" min="1" max="96" value="96" step="1"></label>
-        <label>Display range <span class="range-values"><output id="minimum-output">0</output><span>–</span><output id="maximum-output">1</output></span><span class="dual-range"><input id="minimum" aria-label="Display minimum" type="range" min="0" max="99" value="0"><input id="maximum" aria-label="Display maximum" type="range" min="1" max="100" value="100"></span></label>
-        <label class="check"><input id="log-scale" type="checkbox"> Logarithmic color scaling</label>
-        <div id="scale" class="scale" aria-label="Magnitude color scale"></div><div class="scale-label"><span>low / transparent</span><span>high</span></div>
-        <dl><div><dt>Shape</dt><dd id="shape"></dd></div><div><dt>Payload</dt><dd id="payload"></dd></div><div><dt>Peak</dt><dd id="peak"></dd></div><div><dt>Selected value</dt><dd id="cell">Click a cell</dd></div></dl>
-      </aside></div>
-    </section>
-  </main>
-  <script src="./config.js"></script>
-  <script src="./gif.js"></script>
-  <script src="./app.js"></script>
-</body>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>spviz</title>
+    <link rel="stylesheet" href="./style.css" />
+    <link rel="stylesheet" href="./range.css" />
+  </head>
+  <body>
+    <header>
+      <div>
+        <h1 id="run-name">spviz</h1>
+        <p id="run-meta">Loading run…</p>
+      </div>
+      <div class="appearance">
+        <a id="gallery-link" class="gallery-link" hidden>All examples</a
+        ><label
+          >Theme<select id="theme">
+            <option value="dark">Dark</option>
+            <option value="light">Light</option>
+          </select></label
+        ><label
+          >Color map<select id="colormap">
+            <option value="auto">Auto</option>
+            <option value="spviz">Spviz</option>
+            <option value="viridis">Viridis</option>
+            <option value="plasma">Plasma</option>
+            <option value="inferno">Inferno</option>
+            <option value="magma">Magma</option>
+            <option value="cividis">Cividis</option>
+            <option value="coolwarm">Coolwarm</option>
+            <option value="twilight">Twilight</option>
+          </select></label
+        >
+        <div class="brand">SPVIZ</div>
+      </div>
+    </header>
+    <main>
+      <section aria-labelledby="pipeline-title">
+        <div class="section-head">
+          <div>
+            <h2 id="pipeline-title">Processing graph</h2>
+            <p>
+              Click a data product to inspect its layers. Surface colors come
+              from captured values.
+            </p>
+          </div>
+          <label
+            >Overview aspect<select id="overview-aspect">
+              <option value="data">Data proportions</option>
+              <option value="equal">Equal axes</option>
+              <option value="fit">Fit cards</option>
+            </select></label
+          >
+        </div>
+        <div id="pipeline" class="pipeline"></div>
+      </section>
+      <section
+        id="inspector"
+        class="inspector"
+        aria-labelledby="inspect-title"
+        hidden
+      >
+        <div class="section-head">
+          <div>
+            <h2 id="inspect-title">Inspector</h2>
+            <p id="inspect-description"></p>
+          </div>
+          <button id="play" type="button" aria-pressed="false">
+            Play layers
+          </button>
+        </div>
+        <div class="export-actions" aria-label="Export figures">
+          <button id="save-layer" type="button">Save layer PNG</button
+          ><button id="save-stack" type="button">Save stack PNG</button
+          ><button id="save-animation" type="button">Save animation GIF</button
+          ><button id="save-chain" type="button">Save full chain</button>
+        </div>
+        <div class="inspect-grid">
+          <div class="volume-wrap">
+            <div class="canvas-toolbar">
+              <p id="canvas-help">
+                Drag to adjust the stack. Arrow keys move precisely; Home or
+                double-click resets.
+              </p>
+              <button id="reset-view" type="button">Reset view</button>
+            </div>
+            <canvas
+              id="volume"
+              tabindex="0"
+              aria-label="Interactive data view"
+              aria-describedby="canvas-help cell"
+              title="Drag to adjust the stack; double-click to return home"
+            ></canvas>
+            <div
+              id="volume-status"
+              class="loading-status"
+              role="status"
+              aria-live="polite"
+            ></div>
+          </div>
+          <aside>
+            <label>Axis order<select id="permutation"></select></label>
+            <fieldset id="fixed-dimensions" class="fixed-dimensions" hidden>
+              <legend>Fixed dimensions</legend>
+              <div id="fixed-dimension-controls"></div>
+              <p id="fixed-dimension-note" hidden>
+                Static exports use the captured default index.
+              </p>
+            </fieldset>
+            <label
+              >View<select id="view-mode">
+                <option value="surface">Surface / heatmap</option>
+                <option value="slices">Stacked line slices</option>
+              </select></label
+            >
+            <label
+              >Aspect ratio<select id="aspect">
+                <option value="data">Data proportions</option>
+                <option value="equal">Equal axes</option>
+                <option value="fit">Fit view</option>
+              </select></label
+            >
+            <label
+              >Selected layer <output id="layer-output"></output
+              ><input
+                id="layer"
+                aria-label="Selected layer"
+                aria-describedby="layer-output"
+                type="range"
+                min="0"
+                value="0"
+            /></label>
+            <label class="check"
+              ><input id="isolate" type="checkbox" /> Isolate selected
+              layer</label
+            >
+            <label
+              >Current layer <output id="current-opacity-output">100%</output
+              ><input
+                id="current-opacity"
+                aria-label="Current layer opacity"
+                aria-describedby="current-opacity-output"
+                type="range"
+                min="0"
+                max="100"
+                value="100"
+            /></label>
+            <label
+              >Other layers <output id="opacity-output">25%</output
+              ><input
+                id="opacity"
+                aria-label="Other layers opacity"
+                aria-describedby="opacity-output"
+                type="range"
+                min="0"
+                max="100"
+                value="25"
+            /></label>
+            <button id="link-opacity" type="button" aria-pressed="false">
+              Link opacity: off
+            </button>
+            <label
+              >Pixel density <output id="quality-output">96 px/axis</output
+              ><input
+                id="quality"
+                aria-label="Rendering pixel density"
+                aria-describedby="quality-output"
+                type="range"
+                min="1"
+                max="96"
+                value="96"
+                step="1"
+            /></label>
+            <label
+              >Display range
+              <span class="range-values"
+                ><output id="minimum-output">0</output><span>–</span
+                ><output id="maximum-output">1</output></span
+              ><span class="dual-range"
+                ><input
+                  id="minimum"
+                  aria-label="Display minimum"
+                  type="range"
+                  min="0"
+                  max="99"
+                  value="0" /><input
+                  id="maximum"
+                  aria-label="Display maximum"
+                  type="range"
+                  min="1"
+                  max="100"
+                  value="100" /></span
+            ></label>
+            <label class="check"
+              ><input id="log-scale" type="checkbox" /> Logarithmic color
+              scaling</label
+            >
+            <div
+              id="scale"
+              class="scale"
+              role="img"
+              aria-label="Continuous magnitude color scale"
+            ></div>
+            <div class="scale-label">
+              <span id="scale-label-low">low / transparent</span
+              ><span id="scale-label-high">high</span>
+            </div>
+            <dl>
+              <div>
+                <dt>Shape</dt>
+                <dd id="shape"></dd>
+              </div>
+              <div>
+                <dt>Payload</dt>
+                <dd id="payload"></dd>
+              </div>
+              <div>
+                <dt>Representation</dt>
+                <dd id="representation"></dd>
+              </div>
+              <div>
+                <dt>Peak</dt>
+                <dd id="peak"></dd>
+              </div>
+              <div>
+                <dt>Selected value</dt>
+                <dd id="cell">Click a cell</dd>
+              </div>
+            </dl>
+          </aside>
+        </div>
+      </section>
+    </main>
+    <script src="./config.js"></script>
+    <script src="./gif.js"></script>
+    <script src="./app.js"></script>
+  </body>
 </html>
