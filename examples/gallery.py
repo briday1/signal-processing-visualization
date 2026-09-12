@@ -16,6 +16,10 @@ def limits(value, low=35, high=99.7):
     return float(np.percentile(magnitude, low)), float(np.percentile(magnitude, high))
 
 
+def trace_limits(value, low=.5, high=99.5):
+    return float(np.percentile(value, low)), float(np.percentile(value, high))
+
+
 def generate_audio(path: Path) -> Path:
     rng = np.random.default_rng(11)
     microphones, frames, samples = 6, 28, 128
@@ -176,11 +180,11 @@ def generate_equalizer(path: Path) -> Path:
     lowpass = 2 * cutoff * np.sinc(2 * cutoff * centered) * np.hamming(taps)
     lowpass /= lowpass.sum()
     rec = spviz.init(path, name="Audio FIR equalizer", metadata={"seed": 47, "sample_rate_hz": sample_rate})
-    v0, v1 = limits(raw, 15, 99.8)
+    v0, v1 = trace_limits(raw)
     spviz.tap(raw, "Input audio waveform", axes=["time"], coordinates={"time": {"values": time * 1e3, "units": "ms"}}, units="amplitude", vmin=v0, vmax=v1)
-    spviz.tap(lowpass, "Windowed-sinc FIR taps", axes=["tap"], operation="low-pass design", inputs=raw, vmin=float(np.percentile(np.abs(lowpass), 18)), vmax=float(np.max(np.abs(lowpass))))
+    spviz.tap(lowpass, "Windowed-sinc FIR taps", axes=["tap"], operation="low-pass design", inputs=raw, vmin=float(lowpass.min()), vmax=float(lowpass.max()))
     filtered = np.convolve(raw, lowpass, mode="same")
-    v0, v1 = limits(filtered, 18, 99.8)
+    v0, v1 = trace_limits(filtered)
     spviz.tap(filtered, "Equalized waveform", axes=["time"], coordinates={"time": {"values": time * 1e3, "units": "ms"}}, operation="FIR convolution", inputs=[raw, lowpass], units="amplitude", vmin=v0, vmax=v1)
     frequencies = np.fft.rfftfreq(samples, 1/sample_rate)
     spectrum = np.abs(np.fft.rfft(raw * np.hanning(samples))) ** 2
@@ -210,13 +214,13 @@ def generate_bearing(path: Path) -> Path:
         start = int(impact_time * sample_rate); tail = np.arange(min(90, samples-start)) / sample_rate
         vibration[start:start+len(tail)] += .7*np.exp(-900*tail)*np.sin(2*np.pi*2600*tail)
     rec = spviz.init(path, name="Rolling-bearing fault detector", metadata={"seed": 53, "shaft_hz": shaft_hz, "fault_hz": fault_hz})
-    v0, v1 = limits(vibration, 20, 99.9)
+    v0, v1 = trace_limits(vibration)
     spviz.tap(vibration, "Accelerometer waveform", axes=["time"], coordinates={"time": {"values": time*1e3, "units": "ms"}}, units="g", vmin=v0, vmax=v1)
     spectrum = np.fft.rfft(vibration)
     frequency = np.fft.rfftfreq(samples, 1/sample_rate)
     band = ((frequency > 1800) & (frequency < 3600))
     bandpassed = np.fft.irfft(spectrum * band, n=samples)
-    v0, v1 = limits(bandpassed, 30, 99.8)
+    v0, v1 = trace_limits(bandpassed)
     spviz.tap(bandpassed, "Resonance-band waveform", axes=["time"], coordinates={"time": {"values": time*1e3, "units": "ms"}}, operation="FFT band-pass", inputs=vibration, units="g", vmin=v0, vmax=v1)
     envelope = analytic_envelope(bandpassed)
     v0, v1 = limits(envelope, 30, 99.8)

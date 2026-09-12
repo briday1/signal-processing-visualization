@@ -84,7 +84,7 @@ class RunStore:
             view = view[np.newaxis, :, :]
         depth = view.shape[0]
         layer = max(0, min(layer, depth - 1))
-        plane = np.abs(view[layer])
+        plane = view[layer] if array.ndim == 1 and not np.iscomplexobj(array) else np.abs(view[layer])
         source_rows, source_columns = plane.shape
         target_rows = min(source_rows, limit)
         target_columns = min(source_columns, limit)
@@ -166,7 +166,8 @@ class RunStore:
         rows, columns = min(source_rows, limit), min(source_columns, limit)
         row_indices = np.rint(np.linspace(0, source_rows - 1, rows)).astype(int)
         column_indices = np.rint(np.linspace(0, source_columns - 1, columns)).astype(int)
-        volume = np.asarray(np.abs(view[:, row_indices][:, :, column_indices]), dtype="<f4")
+        sampled = view[:, row_indices][:, :, column_indices]
+        volume = np.asarray(sampled if array.ndim == 1 and not np.iscomplexobj(array) else np.abs(sampled), dtype="<f4")
         finite = volume[np.isfinite(volume)]
         metadata = {
             "product": product_id,

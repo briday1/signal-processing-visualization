@@ -181,6 +181,8 @@ class Session:
             "min": float(finite.min()) if finite.size else None,
             "max": float(finite.max()) if finite.size else None,
             "mean": float(finite.mean()) if finite.size else None,
+            "value_min": float(array[np.isfinite(array)].min()) if finite.size and not np.iscomplexobj(array) else None,
+            "value_max": float(array[np.isfinite(array)].max()) if finite.size and not np.iscomplexobj(array) else None,
         }
         self.products.append({
             "id": product_id,

@@ -17,10 +17,12 @@ class ServerTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             run_path = Path(directory) / "run"
             with spviz.Session(run_path) as run:
-                product_id = run.capture("trace", np.arange(17), axes=["time"])
+                product_id = run.capture("trace", np.arange(-8, 9), axes=["time"])
             metadata, body = RunStore(run_path).volume_binary(product_id, [0], limit=12)
             self.assertEqual(metadata["shape"], [1, 1, 12])
-            self.assertEqual(np.frombuffer(body, dtype="<f4").size, 12)
+            values = np.frombuffer(body, dtype="<f4")
+            self.assertEqual(values.size, 12)
+            self.assertLess(values.min(), 0)
 
     def test_http_api(self):
         with tempfile.TemporaryDirectory() as directory:
