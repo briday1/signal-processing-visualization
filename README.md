@@ -2,13 +2,16 @@
 
 `spviz` is a TensorBoard-style observer for intermediate signal-processing data products. Your application continues to own execution, scheduling, and data flow. `spviz` only taps values that the application already produced, records their semantic axes and lineage, and serves an interactive visualization afterward.
 
-**[Explore all five live examples](https://briday1.github.io/signal-processing-visualization/)**
+**[Explore all eight live examples](https://briday1.github.io/signal-processing-visualization/)**
 
 1. [Phased-array radar](https://briday1.github.io/signal-processing-visualization/radar/) — beamforming, range–Doppler processing, cell averaging, and CA-CFAR.
 2. [Microphone-array audio](https://briday1.github.io/signal-processing-visualization/audio/) — delay-and-sum steering, spectra, noise estimation, and tone tracking.
 3. [QPSK receiver](https://briday1.github.io/signal-processing-visualization/comms/) — carrier correction, matched filtering, symbol error magnitude, and decisions.
 4. [Seismic array](https://briday1.github.io/signal-processing-visualization/seismic/) — trace filtering, spectra, event-energy integration, and triggering.
 5. [Multi-lead ECG](https://briday1.github.io/signal-processing-visualization/ecg/) — baseline removal, QRS enhancement, energy integration, and peak candidates.
+6. [LFM pulse compression](https://briday1.github.io/signal-processing-visualization/pulse-compression/) — 1D chirp, complex echo, matched filtering, CA-CFAR, and detections.
+7. [Audio FIR equalizer](https://briday1.github.io/signal-processing-visualization/equalizer/) — 1D waveforms, windowed-sinc coefficients, convolution, and power spectra.
+8. [Rolling-bearing diagnostics](https://briday1.github.io/signal-processing-visualization/bearing/) — 1D vibration, resonance filtering, analytic envelope, and fault harmonics.
 
 GitHub Actions regenerates that example from `examples/radar.py` and deploys it to Pages on every push to `main`. You can create the same serverless bundle yourself with `spviz export-static RUN_DIR OUTPUT_DIR`.
 
@@ -28,7 +31,7 @@ Choose a different port with either `--port` or `-p`:
 spviz serve runs/radar-demo --port 9000
 ```
 
-Open <http://127.0.0.1:8765>. Click any product without losing the pipeline overview, permute axes, scrub or animate layers, isolate a layer, adjust the opacity of other layers, rotate the volume, and inspect individual values.
+Open <http://127.0.0.1:8765>. Click any product without losing the pipeline overview, permute axes, scrub or animate layers, isolate a layer, adjust the opacity of other layers, drag horizontally or vertically to rotate the volume, and inspect individual values.
 
 The viewer includes dark and light interface themes plus Spviz, Viridis, Plasma, Inferno, Magma, and Cividis color maps. The latter five use the familiar Matplotlib palette endpoints; values at or below the selected minimum remain transparent so the chosen page theme forms the visualization's low-end background.
 
