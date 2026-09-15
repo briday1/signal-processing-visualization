@@ -235,8 +235,10 @@ the same view more than once. Scroll horizontally to reach additional panes;
 Enable **Link compatible viewers** to synchronize layer, orientation, axis
 order, slice mode, aspect, isolation, and fixed-dimension indices between panes
 with identical array shapes and the same displayed axis indices. Changes in
-either pane drive the others. Color ranges, representations, and opacity remain
-independent, so amplitude and phase can retain different scales. Incompatible
+either pane drive the others. Display-range sliders, opacity, resolution, theme, color map, and play/pause also
+synchronize. The initiating pane drives playback; pausing either pane pauses
+the group. Unlinking stops group playback. Representations remain distinct,
+and unsupported settings (such as logarithmic phase) stay disabled. Incompatible
 panes stay independent. Linking is by array index, not physical coordinates.
 
 Comparison panes work in local runs and static galleries. They are kept for the

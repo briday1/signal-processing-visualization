@@ -2146,8 +2146,8 @@ $("link-opacity").onclick = (event) => {
     state.opacity = state.currentOpacity;
     $("opacity").value = Math.round(state.opacity * 100);
     $("opacity-output").textContent = `${Math.round(state.opacity * 100)}%`;
-    scheduleDraw();
   }
+  scheduleDraw();
 };
 $("quality").oninput = (event) => {
   state.pixelDensity = +event.target.value;
@@ -2171,14 +2171,11 @@ $("overview-aspect").onchange = (event) => {
   state.overviewAspect = event.target.value;
   redrawOverviews();
 };
-$("play").onclick = (event) => {
-  if (state.playing) {
-    stopPlayback();
-    return;
-  }
+function startPlayback() {
+  clearInterval(state.timer);
   state.playing = true;
-  event.currentTarget.textContent = "Pause layers";
-  event.currentTarget.setAttribute("aria-pressed", "true");
+  $("play").textContent = "Pause layers";
+  $("play").setAttribute("aria-pressed", "true");
   state.timer = setInterval(() => {
     if (!state.product) return stopPlayback();
     const sliced2D = state.perm.length === 2 && state.viewMode === "slices",
@@ -2191,7 +2188,13 @@ $("play").onclick = (event) => {
     syncLayer();
     scheduleDraw();
   }, 450);
+}
+$("play").onclick = () => {
+  if (state.playing) stopPlayback();
+  else startPlayback();
+  scheduleDraw();
 };
+
 function redrawAppearance() {
   document.documentElement.dataset.theme = state.theme;
   updateScale();
@@ -2504,9 +2507,10 @@ function comparisonSettings() {
     ...comparisonGeometry(), scaleMin: state.scaleMin, scaleMax: state.scaleMax,
     logScale: state.logScale, opacity: state.opacity, currentOpacity: state.currentOpacity,
     pixelDensity: state.pixelDensity, theme: state.theme, colorMap: state.colorMap,
+    opacityLinked: state.opacityLinked, playing: state.playing,
   };
 }
-function applyComparisonSettings(settings, initialize = false) {
+function applyComparisonSettings(settings) {
   if (!state.product || !compatibleGeometry(settings, comparisonGeometry())) return;
   const perm = settings.perm;
   if (!Array.isArray(perm) || perm.length !== state.viewAxes.length
@@ -2532,7 +2536,7 @@ function applyComparisonSettings(settings, initialize = false) {
   $("aspect").value = state.aspect;
   $("isolate").checked = state.isolate;
   $("opacity").disabled = state.isolate;
-  if (initialize) {
+  {
     for (const key of ["scaleMin", "scaleMax", "opacity", "currentOpacity"])
       if (Number.isFinite(settings[key])) state[key] = Math.max(0, Math.min(1, settings[key]));
     state.logScale = Boolean(settings.logScale) && !isBinaryProduct() && state.product.representation !== "phase";
@@ -2549,18 +2553,26 @@ function applyComparisonSettings(settings, initialize = false) {
     $("opacity-output").textContent = `${Math.round(state.opacity * 100)}%`;
     $("current-opacity").value = Math.round(state.currentOpacity * 100);
     $("current-opacity-output").textContent = `${Math.round(state.currentOpacity * 100)}%`;
+    state.opacityLinked = Boolean(settings.opacityLinked);
+    $("link-opacity").setAttribute("aria-pressed", String(state.opacityLinked));
+    $("link-opacity").textContent = `Link opacity: ${state.opacityLinked ? "on" : "off"}`;
+    state.playing = Boolean(settings.playing);
+    $("play").textContent = state.playing ? "Pause layers" : "Play layers";
+    $("play").setAttribute("aria-pressed", String(state.playing));
     syncScaleLabels(); updateScale(); syncScaleLegend();
   }
   syncFixedDimensionControls();
   syncLayer();
   // A linked update must not echo back and restart its source's playback.
-  lastComparisonGeometry = JSON.stringify(comparisonGeometry());
+  lastComparisonGeometry = JSON.stringify(comparisonSettings());
   scheduleDraw();
 }
 function publishComparisonGeometry() {
   if (!embeddedProduct || !comparisonInitialized || !state.product) return;
-  const geometry = comparisonGeometry(), serialized = JSON.stringify(geometry);
+  const geometry = comparisonSettings(), serialized = JSON.stringify(geometry);
   if (serialized === lastComparisonGeometry) return;
+  // A user interacting with a playing follower takes over as the clock source.
+  if (state.playing && !state.timer) startPlayback();
   lastComparisonGeometry = serialized;
   window.parent.postMessage({ channel: "spviz-comparison", type: "geometry", geometry }, location.origin);
 }
@@ -2596,8 +2608,7 @@ function relayComparison(source) {
   if (!$("link-comparison").checked) return;
   for (const panel of state.heldViews.values()) {
     if (panel !== source && compatibleGeometry(source.settings, panel.settings)) {
-      // Keep each pane's appearance settings, even when its geometry is linked.
-      const geometry = Object.fromEntries(["shape", "viewAxes", "perm", "layer", "yaw", "pitch", "isolate", "viewMode", "aspect", "fixedIndices"].map(key => [key, source.settings[key]]));
+      const geometry = structuredClone(source.settings);
       Object.assign(panel.settings, geometry);
       if (panel.ready) sendComparison(panel, "geometry", geometry);
     }
@@ -2628,6 +2639,7 @@ function holdForComparison() {
   header.append(title, remove);
   card.append(header, status, iframe);
   const panel = { card, iframe, status, settings: structuredClone(settings), ready: false };
+  panel.settings.playing = false;
   const match = [...state.heldViews.values()].find(other => compatibleGeometry(other.settings, settings));
   state.heldViews.set(id, panel);
   if (match) relayComparison(match);
@@ -2644,6 +2656,10 @@ window.addEventListener("message", event => {
       applyComparisonSettings(data.settings, true);
       comparisonInitialized = true;
     } else if (data.type === "geometry" && comparisonInitialized) applyComparisonSettings(data.settings);
+    else if (data.type === "unlink") {
+      stopPlayback();
+      scheduleDraw();
+    }
     return;
   }
   const panel = [...state.heldViews.values()].find(entry => entry.iframe.contentWindow === event.source);
@@ -2659,6 +2675,12 @@ window.addEventListener("message", event => {
 $("hold-comparison").onclick = holdForComparison;
 $("clear-comparison").onclick = clearComparison;
 $("link-comparison").onchange = () => {
+  if (!$("link-comparison").checked) {
+    for (const panel of state.heldViews.values()) {
+      panel.settings.playing = false;
+      if (panel.ready) sendComparison(panel, "unlink", {});
+    }
+  }
   const synchronized = [];
   for (const panel of state.heldViews.values()) {
     if (!synchronized.some(previous => compatibleGeometry(previous.settings, panel.settings))) {
