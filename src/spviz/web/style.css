@@ -479,10 +479,10 @@ dd {
   scroll-snap-type: x proximity;
 }
 .comparison-card {
-  flex: 0 0 min(400px, 85vw);
+  flex: 0 0 max(460px, calc((100% - 14px) / 2));
   min-width: 0;
   margin: 0;
-  padding: 12px;
+  padding: 10px;
   border: 1px solid var(--line);
   border-radius: 10px;
   background: var(--panel);
@@ -490,8 +490,19 @@ dd {
 }
 .comparison-card header { min-height: 40px; background: transparent; border: 0; display: flex; justify-content: space-between; gap: 10px; padding: 0; }
 .comparison-card h3 { margin: 0; font-size: 14px; }
-.comparison-card img { display: block; width: 100%; height: 280px; object-fit: contain; margin-block: 12px; }
-.comparison-card figcaption { font-size: 12px; color: var(--muted); overflow-wrap: anywhere; }
+.comparison-card iframe { display: block; width: 100%; height: 780px; border: 0; margin-top: 8px; }
+.comparison-card > p { font-size: 12px; }
+.embedded-viewer body > header,
+.embedded-viewer section[aria-labelledby="pipeline-title"],
+.embedded-viewer #comparison,
+.embedded-viewer #hold-comparison,
+.embedded-viewer #save-chain { display: none; }
+.embedded-viewer main { padding: 12px; }
+.embedded-viewer .inspector { border: 0; padding: 0; }
+.embedded-viewer .inspect-grid { grid-template-columns: 1fr; }
+.embedded-viewer #volume { height: 330px; }
+.embedded-viewer aside { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.embedded-viewer aside > dl, .embedded-viewer aside > fieldset { grid-column: 1 / -1; }
 #comparison-count { color: var(--muted); font-size: 14px; }
 #comparison-status:empty { display: none; }
 

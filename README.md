@@ -224,15 +224,21 @@ It simulates two mutually incoherent narrowband far-field sources with a linear
 array. The image is one-dimensional in angle, retains aperture sidelobes, and
 uses no range recovery or deconvolution.
 
-### Hold views for comparison
+### Interactive side-by-side comparison
 
-Select a view, adjust its layers, scale, or orientation, then click **Hold for
-comparison** in the inspector. Repeat for any number of views, including different
-states of the same view. Frozen plots appear side by side in a horizontally
-scrolling comparison area and stay there as you browse other taps. Their labels
-record axes, representation, layer, bounds, and fixed indices. **Remove** releases
-one held plot; **Clear all** releases the entire comparison.
+Select a view and click **Add to comparison**. Each added pane is a full live
+viewer with its own layer selection, camera/orientation, axis order, opacity,
+color range, and export controls. You can add any number of panes, including
+the same view more than once. Scroll horizontally to reach additional panes;
+**Remove** closes one, and **Clear all** closes all comparison panes.
 
-Held views are snapshots of the rendered plot, so later inspector or appearance
-changes do not alter them. They are kept for the current page session and cleared
-on reload. Both local runs and static galleries support comparison.
+Enable **Link compatible viewers** to synchronize layer, orientation, axis
+order, slice mode, aspect, isolation, and fixed-dimension indices between panes
+with identical array shapes and the same displayed axis indices. Changes in
+either pane drive the others. Color ranges, representations, and opacity remain
+independent, so amplitude and phase can retain different scales. Incompatible
+panes stay independent. Linking is by array index, not physical coordinates.
+
+Comparison panes work in local runs and static galleries. They are kept for the
+current page session and close on reload. Each pane uses an isolated instance of
+the regular viewer; the local server permits embedding only from the same origin.

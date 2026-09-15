@@ -34,6 +34,10 @@ const state = {
   overviewAspect: "data",
   viewMode: "surface",
 };
+const embeddedProduct = new URLSearchParams(location.search).get("viewer");
+if (embeddedProduct) document.documentElement.classList.add("embedded-viewer");
+let comparisonInitialized = false;
+let lastComparisonGeometry = "";
 let qualityTimer = 0;
 const MAX_CANVAS_BACKING_PIXELS = 2_000_000,
   MAX_VOLUME_CACHE_BYTES = 64 * 1024 * 1024,
@@ -1430,6 +1434,13 @@ async function build() {
     $("run-name").textContent = state.run.name;
     $("run-meta").textContent =
       `${state.run.capture_count ?? state.run.products.length} captured products · ${state.run.products.length} plots · ${state.run.created_at}`;
+    if (embeddedProduct) {
+      const product = state.run.products.find((entry) => entry.id === embeddedProduct);
+      if (!product) throw new Error("Comparison product is unavailable");
+      await selectProduct(product);
+      window.parent.postMessage({ channel: "spviz-comparison", type: "ready" }, location.origin);
+      return;
+    }
     const pipeline = $("pipeline");
     pipeline.replaceChildren();
     if (!state.run.products.length) {
@@ -1631,6 +1642,7 @@ function scheduleDraw() {
   if (state.frame) return;
   state.frame = requestAnimationFrame(() => {
     state.frame = 0;
+    publishComparisonGeometry();
     drawVolume(state.renderVersion);
   });
 }
@@ -2475,27 +2487,101 @@ function saveStack() {
   }
   saveCanvas(canvas, exportName("stack", "png"));
 }
-function rememberRenderedView() {
-  const product = state.product,
-    [min, max] = displayBounds(product),
-    layer = $("layer-output").textContent,
-    fixed = [...state.fixedIndices].map(([axis, value]) => `${product.axes[axis]}=${value}`);
-  state.heldFrame = {
-    name: product.name,
-    background: getComputedStyle(document.documentElement).getPropertyValue("--bg").trim(),
-    caption: `${state.perm.map(axis => product.axes[axis]).join(" × ")} · ${$("representation").textContent} · ${layer} · ${state.logScale ? "log" : "linear"} ${min.toPrecision(4)} to ${max.toPrecision(4)}${product.units ? ` ${product.units}` : ""}${fixed.length ? ` · ${fixed.join(", ")}` : ""}`,
+function comparisonGeometry() {
+  return {
+    shape: [...state.product.shape], viewAxes: [...state.viewAxes],
+    perm: [...state.perm], layer: state.layer, yaw: state.yaw, pitch: state.pitch,
+    isolate: state.isolate, viewMode: state.viewMode, aspect: state.aspect,
+    fixedIndices: [...state.fixedIndices],
   };
+}
+function compatibleGeometry(a, b) {
+  return a && b && JSON.stringify(a.shape) === JSON.stringify(b.shape)
+    && JSON.stringify([...a.viewAxes].sort()) === JSON.stringify([...b.viewAxes].sort());
+}
+function comparisonSettings() {
+  return {
+    ...comparisonGeometry(), scaleMin: state.scaleMin, scaleMax: state.scaleMax,
+    logScale: state.logScale, opacity: state.opacity, currentOpacity: state.currentOpacity,
+    pixelDensity: state.pixelDensity, theme: state.theme, colorMap: state.colorMap,
+  };
+}
+function applyComparisonSettings(settings, initialize = false) {
+  if (!state.product || !compatibleGeometry(settings, comparisonGeometry())) return;
+  const perm = settings.perm;
+  if (!Array.isArray(perm) || perm.length !== state.viewAxes.length
+      || new Set(perm).size !== perm.length || perm.some(axis => !state.viewAxes.includes(axis))) return;
+  if (!Number.isFinite(settings.yaw) || !Number.isFinite(settings.pitch)
+      || !Number.isInteger(settings.layer) || !["surface", "slices"].includes(settings.viewMode)
+      || !["data", "equal", "fit"].includes(settings.aspect) || typeof settings.isolate !== "boolean") return;
+  stopPlayback();
+  state.perm = [...perm];
+  state.yaw = Math.max(-1.25, Math.min(1.25, settings.yaw));
+  state.pitch = Math.max(-0.8, Math.min(0.8, settings.pitch));
+  state.viewMode = perm.length === 2 ? settings.viewMode : "surface";
+  state.aspect = settings.aspect;
+  state.isolate = settings.isolate;
+  const depth = perm.length === 3 || state.viewMode === "slices" ? state.product.shape[perm[0]] : 1;
+  state.layer = Math.max(0, Math.min(depth - 1, settings.layer));
+  for (const [axis, index] of settings.fixedIndices || []) {
+    if (state.fixedIndices.has(axis) && Number.isInteger(index) && index >= 0 && index < state.product.shape[axis])
+      state.fixedIndices.set(axis, index);
+  }
+  $("permutation").value = perm.join(",");
+  $("view-mode").value = state.viewMode;
+  $("aspect").value = state.aspect;
+  $("isolate").checked = state.isolate;
+  $("opacity").disabled = state.isolate;
+  if (initialize) {
+    for (const key of ["scaleMin", "scaleMax", "opacity", "currentOpacity"])
+      if (Number.isFinite(settings[key])) state[key] = Math.max(0, Math.min(1, settings[key]));
+    state.logScale = Boolean(settings.logScale) && !isBinaryProduct() && state.product.representation !== "phase";
+    if (Number.isFinite(settings.pixelDensity)) state.pixelDensity = Math.max(1, settings.pixelDensity);
+    if (["dark", "light"].includes(settings.theme)) state.theme = settings.theme;
+    if (settings.colorMap === "auto" || Object.hasOwn(colorMaps, settings.colorMap)) state.colorMap = settings.colorMap;
+    document.documentElement.dataset.theme = state.theme;
+    $("theme").value = state.theme;
+    $("colormap").value = state.colorMap;
+    $("minimum").value = state.scaleMin * 100;
+    $("maximum").value = state.scaleMax * 100;
+    $("log-scale").checked = state.logScale;
+    $("opacity").value = Math.round(state.opacity * 100);
+    $("opacity-output").textContent = `${Math.round(state.opacity * 100)}%`;
+    $("current-opacity").value = Math.round(state.currentOpacity * 100);
+    $("current-opacity-output").textContent = `${Math.round(state.currentOpacity * 100)}%`;
+    syncScaleLabels(); updateScale(); syncScaleLegend();
+  }
+  syncFixedDimensionControls();
+  syncLayer();
+  // A linked update must not echo back and restart its source's playback.
+  lastComparisonGeometry = JSON.stringify(comparisonGeometry());
+  scheduleDraw();
+}
+function publishComparisonGeometry() {
+  if (!embeddedProduct || !comparisonInitialized || !state.product) return;
+  const geometry = comparisonGeometry(), serialized = JSON.stringify(geometry);
+  if (serialized === lastComparisonGeometry) return;
+  lastComparisonGeometry = serialized;
+  window.parent.postMessage({ channel: "spviz-comparison", type: "geometry", geometry }, location.origin);
+}
+function rememberRenderedView() {
+  state.heldFrame = { product: state.product, settings: comparisonSettings() };
   $("hold-comparison").disabled = false;
 }
 function syncComparison() {
   $("comparison").hidden = state.heldViews.size === 0;
   $("comparison-count").textContent = `(${state.heldViews.size})`;
+  const linking = $("link-comparison").checked;
+  for (const panel of state.heldViews.values()) {
+    const matches = [...state.heldViews.values()].filter(other => other !== panel && compatibleGeometry(other.settings, panel.settings));
+    panel.status.textContent = linking && matches.length ? `Linked with ${matches.length} compatible viewer${matches.length === 1 ? "" : "s"}` : "Independent viewer";
+  }
 }
 function removeHeldView(id) {
-  const held = state.heldViews.get(id);
-  if (!held) return;
-  if (held.url) URL.revokeObjectURL(held.url);
-  held.card.remove();
+  const panel = state.heldViews.get(id);
+  if (!panel) return;
+  panel.iframe.src = "about:blank";
+  panel.card.remove();
   state.heldViews.delete(id);
   syncComparison();
 }
@@ -2503,59 +2589,85 @@ function clearComparison() {
   for (const id of state.heldViews.keys()) removeHeldView(id);
   $("comparison-status").textContent = "Comparison cleared.";
 }
+function sendComparison(panel, type, settings) {
+  panel.iframe.contentWindow.postMessage({ channel: "spviz-comparison", type, settings }, location.origin);
+}
+function relayComparison(source) {
+  if (!$("link-comparison").checked) return;
+  for (const panel of state.heldViews.values()) {
+    if (panel !== source && compatibleGeometry(source.settings, panel.settings)) {
+      // Keep each pane's appearance settings, even when its geometry is linked.
+      const geometry = Object.fromEntries(["shape", "viewAxes", "perm", "layer", "yaw", "pitch", "isolate", "viewMode", "aspect", "fixedIndices"].map(key => [key, source.settings[key]]));
+      Object.assign(panel.settings, geometry);
+      if (panel.ready) sendComparison(panel, "geometry", geometry);
+    }
+  }
+}
 function holdForComparison() {
-  if (!state.heldFrame) return;
-  const source = $("volume"),
-    snapshot = document.createElement("canvas"),
-    frame = state.heldFrame,
+  if (!state.heldFrame || embeddedProduct) return;
+  const { product, settings } = state.heldFrame,
     id = ++state.nextHeldView,
-    card = document.createElement("figure"),
+    card = document.createElement("article"),
     header = document.createElement("header"),
     title = document.createElement("h3"),
     remove = document.createElement("button"),
-    preview = document.createElement("img"),
-    caption = document.createElement("figcaption");
-  // Copy synchronously before the inspector can switch to another view.
-  snapshot.width = source.width;
-  snapshot.height = source.height;
-  const context = snapshot.getContext("2d");
-  context.fillStyle = frame.background;
-  context.fillRect(0, 0, snapshot.width, snapshot.height);
-  context.drawImage(source, 0, 0);
+    status = document.createElement("p"),
+    iframe = document.createElement("iframe"),
+    url = new URL(location.href);
+  url.searchParams.set("viewer", product.id);
+  url.hash = "";
+  iframe.title = `Interactive comparison ${id}: ${product.name}`;
+  iframe.src = url.href;
   card.className = "comparison-card";
   card.setAttribute("role", "listitem");
-  title.textContent = `${id}. ${frame.name}`;
+  title.textContent = `${id}. ${product.name}`;
   remove.type = "button";
   remove.textContent = "Remove";
-  remove.setAttribute("aria-label", `Remove held view ${id}: ${frame.name}`);
+  remove.setAttribute("aria-label", `Remove viewer ${id}: ${product.name}`);
   remove.onclick = () => removeHeldView(id);
-  preview.alt = `Held plot ${id}: ${frame.name}`;
-  preview.loading = "lazy";
-  preview.hidden = true;
-  caption.textContent = frame.caption;
   header.append(title, remove);
-  card.append(header, preview, caption);
-  const held = { card, url: null };
-  state.heldViews.set(id, held);
+  card.append(header, status, iframe);
+  const panel = { card, iframe, status, settings: structuredClone(settings), ready: false };
+  const match = [...state.heldViews.values()].find(other => compatibleGeometry(other.settings, settings));
+  state.heldViews.set(id, panel);
+  if (match) relayComparison(match);
   $("comparison-views").append(card);
   syncComparison();
-  $("comparison-status").textContent = `Held ${frame.name}. ${state.heldViews.size} views in comparison.`;
-  snapshot.toBlob((blob) => {
-    snapshot.width = snapshot.height = 0;
-    // Removing/clearing during encoding must not resurrect a held view or leak URLs.
-    if (!state.heldViews.has(id)) return;
-    if (!blob) {
-      removeHeldView(id);
-      $("comparison-status").textContent = "Could not hold this plot. Please try again.";
-      return;
-    }
-    held.url = URL.createObjectURL(blob);
-    preview.src = held.url;
-    preview.hidden = false;
-  }, "image/png");
+  $("comparison-status").textContent = `Added ${product.name}. ${state.heldViews.size} interactive viewers.`;
 }
+window.addEventListener("message", event => {
+  const data = event.data;
+  if (event.origin !== location.origin || data?.channel !== "spviz-comparison") return;
+  if (embeddedProduct) {
+    if (event.source !== window.parent || !state.product) return;
+    if (data.type === "initialize") {
+      applyComparisonSettings(data.settings, true);
+      comparisonInitialized = true;
+    } else if (data.type === "geometry" && comparisonInitialized) applyComparisonSettings(data.settings);
+    return;
+  }
+  const panel = [...state.heldViews.values()].find(entry => entry.iframe.contentWindow === event.source);
+  if (!panel) return;
+  if (data.type === "ready") {
+    panel.ready = true;
+    sendComparison(panel, "initialize", panel.settings);
+  } else if (data.type === "geometry" && compatibleGeometry(data.geometry, panel.settings)) {
+    Object.assign(panel.settings, data.geometry);
+    relayComparison(panel);
+  }
+});
 $("hold-comparison").onclick = holdForComparison;
 $("clear-comparison").onclick = clearComparison;
+$("link-comparison").onchange = () => {
+  const synchronized = [];
+  for (const panel of state.heldViews.values()) {
+    if (!synchronized.some(previous => compatibleGeometry(previous.settings, panel.settings))) {
+      relayComparison(panel);
+      synchronized.push(panel);
+    }
+  }
+  syncComparison();
+};
 
 function saveFullChain() {
   const groups = state.captureGroups,
