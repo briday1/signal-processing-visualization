@@ -13,3 +13,12 @@ class CarouselTests(unittest.TestCase):
             capture_output=True,
             text=True,
         )
+
+    @unittest.skipUnless(shutil.which("node"), "Node.js is needed for viewer tests")
+    def test_held_comparison(self):
+        subprocess.run(
+            ["node", str(Path(__file__).with_name("web-comparison.test.cjs"))],
+            check=True,
+            capture_output=True,
+            text=True,
+        )

@@ -223,3 +223,16 @@ spviz serve runs/interferometry-demo
 It simulates two mutually incoherent narrowband far-field sources with a linear
 array. The image is one-dimensional in angle, retains aperture sidelobes, and
 uses no range recovery or deconvolution.
+
+### Hold views for comparison
+
+Select a view, adjust its layers, scale, or orientation, then click **Hold for
+comparison** in the inspector. Repeat for any number of views, including different
+states of the same view. Frozen plots appear side by side in a horizontally
+scrolling comparison area and stay there as you browse other taps. Their labels
+record axes, representation, layer, bounds, and fixed indices. **Remove** releases
+one held plot; **Clear all** releases the entire comparison.
+
+Held views are snapshots of the rendered plot, so later inspector or appearance
+changes do not alter them. They are kept for the current page session and cleared
+on reload. Both local runs and static galleries support comparison.
