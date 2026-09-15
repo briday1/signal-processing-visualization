@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Align alternate-view scrolling with the isometric depth axis while keeping plots and labels upright.
+
 - Stack alternate views vertically per tap, with scroll, touch, and keyboard navigation.
 - Add `primary_view` to choose the initially centered view through the Python API.
 - Keep full-chain PNG exports aligned around each tap’s current primary view.

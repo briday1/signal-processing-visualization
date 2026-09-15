@@ -1318,8 +1318,8 @@ function buildCaptureStack(group) {
   controls.className = "view-controls";
   label.setAttribute("aria-live", "polite");
   previous.type = next.type = "button";
-  previous.textContent = "↑";
-  next.textContent = "↓";
+  previous.textContent = "↗";
+  next.textContent = "↙";
   previous.setAttribute("aria-label", `Previous view of ${group.name}`);
   next.setAttribute("aria-label", `Next view of ${group.name}`);
   previous.onclick = () => promoteView(group, group.active - 1);
