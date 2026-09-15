@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- Add named amplitude, phase, and other views per tap, sharing one stored array.
+- Support independent view inspection and static gallery exports.
+- Update radar examples and add a narrowband aperture interferometry example.
+
 ## 0.2.1 — 2026-09-12
 
 - Keep large and Retina displays responsive with a bounded interactive canvas backing store.

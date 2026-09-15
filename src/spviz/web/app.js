@@ -1278,7 +1278,7 @@ async function build() {
       throw new Error("Run manifest does not contain a product list");
     $("run-name").textContent = state.run.name;
     $("run-meta").textContent =
-      `${state.run.products.length} captured products · ${state.run.created_at}`;
+      `${state.run.capture_count ?? state.run.products.length} captured products · ${state.run.products.length} plots · ${state.run.created_at}`;
     const pipeline = $("pipeline");
     pipeline.replaceChildren();
     if (!state.run.products.length) {
@@ -1296,13 +1296,14 @@ async function build() {
           operation = document.createElement("span"),
           upstream = Array.isArray(product.upstream) ? product.upstream : [],
           previous = state.run.products[i - 1],
-          directlyConnected = upstream.includes(previous.id),
+          sameCapture = product.capture_id && product.capture_id === previous.capture_id,
+          directlyConnected = upstream.includes(previous.capture_id || previous.id),
           upstreamNames = upstream.map(
             (id) =>
               state.run.products.find((entry) => entry.id === id)?.name || id,
           );
         edge.className = directlyConnected ? "edge" : "edge disconnected";
-        operation.textContent = directlyConnected
+        operation.textContent = sameCapture ? "another view of the same tap" : directlyConnected
           ? `${product.operation || "transform"}${upstreamNames.length > 1 ? ` · inputs ${upstreamNames.join(", ")}` : ""}`
           : upstreamNames.length
             ? `${product.operation || "transform"} · from ${upstreamNames.join(", ")}`
@@ -1310,7 +1311,7 @@ async function build() {
         edge.setAttribute("role", "img");
         edge.setAttribute(
           "aria-label",
-          directlyConnected
+          sameCapture ? "Another view of the same captured array" : directlyConnected
             ? `${product.name} receives ${upstreamNames.join(", ")} via ${product.operation || "transform"}`
             : upstreamNames.length
               ? `${product.name} comes from ${upstreamNames.join(", ")}`

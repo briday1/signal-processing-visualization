@@ -64,6 +64,7 @@ def generate(output: Path, seed: int = 7) -> Path:
     spviz.tap(
         iq,
         "Channel I/Q",
+        views={"Amplitude": {}, "Phase": {"representation": "phase"}},
         axes=["receiver", "chirp", "fast-time sample"],
         coordinates={
             "receiver": {"values": receiver_positions, "units": "wavelengths"},
@@ -89,6 +90,7 @@ def generate(output: Path, seed: int = 7) -> Path:
     spviz.tap(
         beamformed,
         "Beamformed I/Q",
+        views={"Amplitude": {}, "Phase": {"representation": "phase"}},
         axes=["look angle", "chirp", "fast-time sample"],
         coordinates={
             "look angle": {"values": look_angles, "units": "deg"},
