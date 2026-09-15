@@ -419,6 +419,7 @@ class Session:
         view_axes: Iterable[str | int] | None = None,
         coordinates: dict[str | int, Any] | None = None,
         filename: str | Path | None = None,
+        views: dict[str, dict[str, Any]] | None = None,
         representation: Representation = "auto",
         statistics: Statistics = "exact",
         scale: Scale = "linear",
@@ -441,6 +442,7 @@ class Session:
                 view_axes=view_axes,
                 coordinates=coordinates,
                 filename=filename,
+                views=views,
                 representation=representation,
                 statistics=statistics,
                 scale=scale,
@@ -462,6 +464,7 @@ class Session:
         view_axes: Iterable[str | int] | None = None,
         coordinates: dict[str | int, Any] | None = None,
         filename: str | Path | None = None,
+        views: dict[str, dict[str, Any]] | None = None,
         representation: Representation = "auto",
         statistics: Statistics = "exact",
         scale: Scale = "linear",
@@ -732,6 +735,17 @@ class Session:
             "metadata": product_metadata,
             "stats": stats,
         }
+        if views is not None:
+            from .views import resolve_views
+
+            configurations = resolve_views(views, product)
+            product["views"] = _validated_json(views, "views")
+            product["view_stats"] = {
+                view["view_name"]: _array_statistics(
+                    array, view["representation"], statistics
+                )
+                for view in configurations
+            }
         _validated_json(product, "product manifest")
 
         # All validation and serialization checks above deliberately precede I/O.
@@ -804,6 +818,7 @@ def capture(
     view_axes: Iterable[str | int] | None = None,
     coordinates: dict[str | int, Any] | None = None,
     filename: str | Path | None = None,
+    views: dict[str, dict[str, Any]] | None = None,
     representation: Representation = "auto",
     statistics: Statistics = "exact",
     scale: Scale = "linear",
@@ -823,6 +838,7 @@ def capture(
         view_axes=view_axes,
         coordinates=coordinates,
         filename=filename,
+        views=views,
         representation=representation,
         statistics=statistics,
         scale=scale,

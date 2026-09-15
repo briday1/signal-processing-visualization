@@ -124,9 +124,12 @@ class RunStore:
             if mtime_ns == self._manifest_mtime_ns:
                 return
             manifest = json.loads(self._manifest_path.read_text(encoding="utf-8"))
-            products = self._validate_manifest(manifest)
+            self._validate_manifest(manifest)
+            from .views import expand_views
+
+            manifest = expand_views(manifest)
             self.manifest = manifest
-            self.products = products
+            self.products = {product["id"]: product for product in manifest["products"]}
             self._manifest_mtime_ns = mtime_ns
 
     def _run_file(self, value: str, *, product: str) -> Path:
@@ -288,6 +291,23 @@ class RunStore:
                     raise ValueError(
                         f"Product {product_id!r} coordinate data for {axis!r} has the wrong shape"
                     )
+            if "views" in product:
+                from .views import resolve_views
+
+                for view in resolve_views(product["views"], product):
+                    stats = product.get("view_stats", {}).get(view["view_name"])
+                    if not isinstance(stats, dict) or not all(
+                        key in stats
+                        and (
+                            stats[key] is None
+                            or (
+                                isinstance(stats[key], (float, int))
+                                and np.isfinite(stats[key])
+                            )
+                        )
+                        for key in ("display_min", "display_max", "display_mean")
+                    ):
+                        raise ValueError("Invalid view statistics")
             products[product_id] = product
         for product_id, product in products.items():
             for parent in product.get("upstream", []):

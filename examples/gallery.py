@@ -12,9 +12,11 @@ from spviz.static import export_static
 
 try:  # Support both direct execution and package-style test imports.
     from .advanced_gallery import GENERATORS as ADVANCED_GENERATORS
+    from .interferometry import generate as generate_interferometry
     from .radar import generate as generate_radar
 except ImportError:
     from advanced_gallery import GENERATORS as ADVANCED_GENERATORS
+    from interferometry import generate as generate_interferometry
     from radar import generate as generate_radar
 
 
@@ -1115,6 +1117,11 @@ def generate_ofdm(path: Path) -> Path:
 
 EXAMPLES = [
     (
+        "interferometry",
+        "Aperture interferometry",
+        "Receiver amplitude and phase, baseline visibilities, dirty angular image, and point-spread function.",
+    ),
+    (
         "radar",
         "Phased-array radar",
         "Beamforming, range–Doppler processing, cell averaging, and CA-CFAR.",
@@ -1191,6 +1198,7 @@ def build_gallery(output: Path) -> Path:
     runs = output.parent / "runs"
     generators = {
         "radar": generate_radar,
+        "interferometry": generate_interferometry,
         "audio": generate_audio,
         "comms": generate_comms,
         "seismic": generate_seismic,

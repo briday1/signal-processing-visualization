@@ -175,3 +175,40 @@ spviz export-static runs/my-run site --max-volume-mb 32 --max-total-mb 512
 - Fourteen deterministic, physically grounded demonstrations spanning 1D, 2D, and 3D products
 
 Live streaming, framework adapters, timeline comparison, and GPU-side capture remain future work; captured-run inspection is the intentionally focused core.
+
+### Multiple plots from one tap
+
+Pass a `views` dictionary to `spviz.tap`, `Recorder.tap`, `instrument`, or
+`Session.capture` to show named plots of the same captured array:
+
+```python
+spviz.tap(iq, "Receiver I/Q", axes=["receiver", "sample"], views={
+    "Amplitude": {"representation": "magnitude", "units": "V"},
+    "Phase": {"representation": "phase"},
+})
+```
+
+Each view appears as a separate selectable plot, labeled with its tap and view
+name. The array and coordinates are saved once, and downstream lineage still
+refers to the original tap. Each plot has independent inspection controls.
+Named views replace the single default plot; omitting `views` keeps existing
+behavior. Both the local viewer and static exports support them.
+
+View options are `representation`, `scale`, `vmin`, `vmax`, `units`,
+`view_axes`, and `overview_aspect`. Unspecified options inherit the tap defaults,
+except that changing representation resets bounds and units. Phase defaults to
+linear scale, radians, and −π to π. A phase view requires complex data.
+With `statistics="none"`, each view needs display bounds.
+
+The radar gallery now includes amplitude and phase views. The new interferometry
+example follows complex receiver voltages through baseline cross-products,
+integrated visibilities, and a dirty angular image, alongside the aperture PSF:
+
+```bash
+python examples/interferometry.py --output runs/interferometry-demo
+spviz serve runs/interferometry-demo
+```
+
+It simulates two mutually incoherent narrowband far-field sources with a linear
+array. The image is one-dimensional in angle, retains aperture sidelobes, and
+uses no range recovery or deconvolution.
