@@ -23,7 +23,8 @@ const context = vm.createContext({ state, $, URL, structuredClone, embeddedProdu
   document: { createElement: tag => new Element(tag), documentElement: { dataset: {} } },
   window: { parent, addEventListener: (name, handler) => { if (name === 'message') messageHandler = handler; } },
   comparisonInitialized: false, lastComparisonGeometry: '', colorMaps: {},
-  stopPlayback() {}, isBinaryProduct: () => false, syncScaleLabels() {}, updateScale() {}, syncScaleLegend() {},
+  stopPlayback() { state.timer = null; state.playing = false; },
+  startPlayback() { state.timer = 1; state.playing = true; }, isBinaryProduct: () => false, syncScaleLabels() {}, updateScale() {}, syncScaleLegend() {},
   syncFixedDimensionControls() {}, syncLayer() {}, scheduleDraw: () => renders++,
 });
 vm.runInContext(source.slice(source.indexOf('function comparisonGeometry()'), source.indexOf('function saveFullChain()')), context);
@@ -49,7 +50,7 @@ assert.equal(b.settings.layer, 4);
 receive(b, 'geometry', { ...b.settings, layer: 6, yaw: 0.8 });
 assert.equal(a.settings.layer, 6, 'linking works in both directions');
 assert.equal(a.settings.yaw, 0.8);
-assert.equal(a.iframe.messages.at(-1).data.settings.scaleMin, undefined, 'do not link amplitude/phase color ranges');
+assert.equal(a.iframe.messages.at(-1).data.settings.scaleMin, 0, 'display controls are linked too');
 state.product = { ...product, id: 'different', shape: [4, 20, 512] };
 context.rememberRenderedView(); context.holdForComparison();
 const c = [...state.heldViews.values()][2];
@@ -93,3 +94,31 @@ assert.equal(parent.messages[0].geometry.layer, 6);
 context.applyComparisonSettings({ ...geometry, shape: [4, 20, 512], layer: 0 });
 assert.equal(state.layer, 6, 'incompatible update is ignored');
 console.log('Independent interactive viewers, bidirectional compatible linking, no echo, and cleanup passed.');
+
+context.applyComparisonSettings({ ...context.comparisonSettings(), yaw: 0.7, pitch: -0.3,
+  scaleMin: 0.2, scaleMax: 0.8, opacity: 0.4, currentOpacity: 0.6,
+  opacityLinked: true, playing: true, pixelDensity: 128, theme: 'light', colorMap: 'auto', logScale: true });
+assert.equal(state.pitch, -0.3, 'nutation/pitch follows the linked viewer');
+assert.equal(state.yaw, 0.7);
+assert.equal(state.opacity, 0.4);
+assert.equal(state.currentOpacity, 0.6);
+assert.equal(state.opacityLinked, true);
+assert.equal(state.scaleMin, 0.2);
+assert.equal(state.scaleMax, 0.8);
+assert.equal(state.pixelDensity, 128);
+assert.equal(state.theme, 'light');
+assert.equal(state.logScale, false, 'phase cannot use logarithmic values');
+assert.equal(state.playing, true);
+assert.equal($('play').textContent, 'Pause layers');
+context.publishComparisonGeometry();
+assert.equal(parent.messages.length, 1, 'appearance/playback updates do not echo');
+state.playing = false;
+context.publishComparisonGeometry();
+assert.equal(parent.messages.at(-1).geometry.playing, false, 'pause is broadcast even without a layer change');
+console.log('Rotation, nutation, opacity, range, quality, appearance, and playback linking passed.');
+
+context.applyComparisonSettings({ ...context.comparisonSettings(), playing: true });
+assert.equal(state.timer, null);
+state.opacity = 0.7;
+context.publishComparisonGeometry();
+assert.equal(state.timer, 1, 'editing a playing follower transfers the playback clock');

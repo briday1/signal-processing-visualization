@@ -492,7 +492,9 @@ dd {
 .comparison-card h3 { margin: 0; font-size: 14px; }
 .comparison-card iframe { display: block; width: 100%; height: 780px; border: 0; margin-top: 8px; }
 .comparison-card > p { font-size: 12px; }
-.embedded-viewer body > header,
+.embedded-viewer body > header > div:first-child,
+.embedded-viewer #gallery-link,
+.embedded-viewer .brand,
 .embedded-viewer section[aria-labelledby="pipeline-title"],
 .embedded-viewer #comparison,
 .embedded-viewer #hold-comparison,
@@ -507,3 +509,5 @@ dd {
 #comparison-status:empty { display: none; }
 
 .comparison-card img[hidden] { display: none; }
+
+.embedded-viewer body > header { min-height: 0; padding: 8px 12px; justify-content: flex-end; }
