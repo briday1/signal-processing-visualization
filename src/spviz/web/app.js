@@ -1277,6 +1277,23 @@ function groupCaptures(products) {
     active: Math.max(0, group.views.findIndex((view) => view.is_primary || view.view_name === view.primary_view)),
   }));
 }
+function updateViewDepth(group) {
+  const center = group.viewport.scrollTop + group.viewport.clientHeight / 2,
+    stride = group.cards.length > 1
+      ? Math.max(1, group.cards[1].offsetTop - group.cards[0].offsetTop)
+      : group.cards[0].offsetHeight;
+  for (const card of group.cards) {
+    // Layout coordinates stay stable while the visual transform changes size.
+    const distance = Math.abs(card.offsetTop + card.offsetHeight / 2 - center),
+      t = Math.min(1, distance / (stride * 1.5)),
+      falloff = t * t * (3 - 2 * t),
+      focus = 1 - falloff;
+    card.style.setProperty("--view-scale", String(0.68 + 0.32 * focus));
+    card.style.setProperty("--view-opacity", String(0.3 + 0.7 * focus));
+    card.style.setProperty("--view-focus", String(focus));
+    card.style.zIndex = String(1 + Math.round(focus * 100));
+  }
+}
 function markPrimary(group, index) {
   group.active = index;
   group.cards.forEach((card, i) => {
@@ -1293,6 +1310,7 @@ function centerView(group, index, behavior = "smooth") {
     top: card.offsetTop - (group.viewport.clientHeight - card.offsetHeight) / 2,
     behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "instant" : behavior,
   });
+  updateViewDepth(group);
 }
 function promoteView(group, index, focus = false) {
   index = Math.max(0, Math.min(group.views.length - 1, index));
@@ -1359,6 +1377,7 @@ function buildCaptureStack(group) {
   // continue to scroll the pipeline. Snap settles before updating the inspector.
   let settleTimer;
   viewport.addEventListener("scroll", () => {
+    updateViewDepth(group);
     clearTimeout(settleTimer);
     settleTimer = setTimeout(() => {
       if (!viewport.isConnected) return;
