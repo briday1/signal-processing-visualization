@@ -465,3 +465,34 @@ dd {
 
 /* Room for diagonal previews at the two ends of the horizontal pipeline. */
 .pipeline { padding-inline: 55px; }
+
+.comparison {
+  border-top: 1px solid var(--line);
+  padding-block: 20px;
+}
+.comparison[hidden] { display: none; }
+.comparison-views {
+  display: flex;
+  gap: 14px;
+  overflow-x: auto;
+  padding: 8px 2px 16px;
+  scroll-snap-type: x proximity;
+}
+.comparison-card {
+  flex: 0 0 min(400px, 85vw);
+  min-width: 0;
+  margin: 0;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--panel);
+  scroll-snap-align: start;
+}
+.comparison-card header { min-height: 40px; background: transparent; border: 0; display: flex; justify-content: space-between; gap: 10px; padding: 0; }
+.comparison-card h3 { margin: 0; font-size: 14px; }
+.comparison-card img { display: block; width: 100%; height: 280px; object-fit: contain; margin-block: 12px; }
+.comparison-card figcaption { font-size: 12px; color: var(--muted); overflow-wrap: anywhere; }
+#comparison-count { color: var(--muted); font-size: 14px; }
+#comparison-status:empty { display: none; }
+
+.comparison-card img[hidden] { display: none; }

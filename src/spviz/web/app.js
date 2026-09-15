@@ -1,6 +1,8 @@
 const state = {
   run: null,
   product: null,
+  heldViews: new Map(),
+  nextHeldView: 0,
   captureGroups: [],
   viewAxes: [],
   perm: [],
@@ -169,6 +171,7 @@ function lruSet(cache, key, value, limit, maximumBytes = Infinity) {
   }
 }
 function setVolumeStatus(message, error = false) {
+  $("hold-comparison").disabled = Boolean(message) || error || !state.product;
   const status = $("volume-status");
   status.textContent = message;
   status.classList.toggle("visible", Boolean(message));
@@ -1621,6 +1624,7 @@ function syncScaleLabels() {
   }
 }
 function scheduleDraw() {
+  $("hold-comparison").disabled = true;
   state.renderVersion++;
   if (state.frame) return;
   state.frame = requestAnimationFrame(() => {
@@ -2456,6 +2460,79 @@ function saveStack() {
   }
   saveCanvas(canvas, exportName("stack", "png"));
 }
+function syncComparison() {
+  $("comparison").hidden = state.heldViews.size === 0;
+  $("comparison-count").textContent = `(${state.heldViews.size})`;
+}
+function removeHeldView(id) {
+  const held = state.heldViews.get(id);
+  if (!held) return;
+  if (held.url) URL.revokeObjectURL(held.url);
+  held.card.remove();
+  state.heldViews.delete(id);
+  syncComparison();
+}
+function clearComparison() {
+  for (const id of state.heldViews.keys()) removeHeldView(id);
+  $("comparison-status").textContent = "Comparison cleared.";
+}
+function holdForComparison() {
+  if (!state.product || $("hold-comparison").disabled) return;
+  const source = $("volume"),
+    snapshot = document.createElement("canvas"),
+    product = state.product,
+    id = ++state.nextHeldView,
+    card = document.createElement("figure"),
+    header = document.createElement("header"),
+    title = document.createElement("h3"),
+    remove = document.createElement("button"),
+    preview = document.createElement("img"),
+    caption = document.createElement("figcaption");
+  // Copy synchronously before the inspector can switch to another view.
+  snapshot.width = source.width;
+  snapshot.height = source.height;
+  const context = snapshot.getContext("2d");
+  context.fillStyle = getComputedStyle(document.documentElement).getPropertyValue("--bg").trim();
+  context.fillRect(0, 0, snapshot.width, snapshot.height);
+  context.drawImage(source, 0, 0);
+  card.className = "comparison-card";
+  card.setAttribute("role", "listitem");
+  title.textContent = `${id}. ${product.name}`;
+  remove.type = "button";
+  remove.textContent = "Remove";
+  remove.setAttribute("aria-label", `Remove held view ${id}: ${product.name}`);
+  remove.onclick = () => removeHeldView(id);
+  preview.alt = `Held plot ${id}: ${product.name}`;
+  preview.loading = "lazy";
+  preview.hidden = true;
+  const [min, max] = displayBounds(product),
+    layer = $("layer-output").textContent,
+    fixed = [...state.fixedIndices].map(([axis, value]) => `${product.axes[axis]}=${value}`);
+  caption.textContent = `${state.perm.map(axis => product.axes[axis]).join(" × ")} · ${$("representation").textContent} · ${layer} · ${state.logScale ? "log" : "linear"} ${min.toPrecision(4)} to ${max.toPrecision(4)}${product.units ? ` ${product.units}` : ""}${fixed.length ? ` · ${fixed.join(", ")}` : ""}`;
+  header.append(title, remove);
+  card.append(header, preview, caption);
+  const held = { card, url: null };
+  state.heldViews.set(id, held);
+  $("comparison-views").append(card);
+  syncComparison();
+  $("comparison-status").textContent = `Held ${product.name}. ${state.heldViews.size} views in comparison.`;
+  snapshot.toBlob((blob) => {
+    snapshot.width = snapshot.height = 0;
+    // Removing/clearing during encoding must not resurrect a held view or leak URLs.
+    if (!state.heldViews.has(id)) return;
+    if (!blob) {
+      removeHeldView(id);
+      $("comparison-status").textContent = "Could not hold this plot. Please try again.";
+      return;
+    }
+    held.url = URL.createObjectURL(blob);
+    preview.src = held.url;
+    preview.hidden = false;
+  }, "image/png");
+}
+$("hold-comparison").onclick = holdForComparison;
+$("clear-comparison").onclick = clearComparison;
+
 function saveFullChain() {
   const groups = state.captureGroups,
     above = Math.max(0, ...groups.map((group) => group.active)),
