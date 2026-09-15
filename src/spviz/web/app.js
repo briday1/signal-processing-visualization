@@ -2,6 +2,7 @@ const state = {
   run: null,
   product: null,
   heldViews: new Map(),
+  heldFrame: null,
   nextHeldView: 0,
   captureGroups: [],
   viewAxes: [],
@@ -171,7 +172,7 @@ function lruSet(cache, key, value, limit, maximumBytes = Infinity) {
   }
 }
 function setVolumeStatus(message, error = false) {
-  $("hold-comparison").disabled = Boolean(message) || error || !state.product;
+  $("hold-comparison").disabled = !state.heldFrame;
   const status = $("volume-status");
   status.textContent = message;
   status.classList.toggle("visible", Boolean(message));
@@ -182,6 +183,8 @@ function resetVolumeGeometry() {
   $("volume")._geometry = null;
 }
 function clearVolumeCanvas() {
+  state.heldFrame = null;
+  $("hold-comparison").disabled = true;
   const canvas = $("volume"),
     width = canvas.width,
     height = canvas.height;
@@ -1624,7 +1627,6 @@ function syncScaleLabels() {
   }
 }
 function scheduleDraw() {
-  $("hold-comparison").disabled = true;
   state.renderVersion++;
   if (state.frame) return;
   state.frame = requestAnimationFrame(() => {
@@ -1639,6 +1641,19 @@ function scheduleExpensiveDraw(message, delay = 90) {
   qualityTimer = setTimeout(scheduleDraw, delay);
 }
 async function drawVolume(version) {
+  try {
+    await renderVolume(version);
+    if (version === state.renderVersion && $("volume")._geometry) {
+      rememberRenderedView();
+    }
+  } catch (error) {
+    if (version === state.renderVersion) {
+      state.heldFrame = null;
+      handleViewerError(error);
+    }
+  }
+}
+async function renderVolume(version) {
   const canvas = $("volume"),
     product = state.product;
   if (!product) return;
@@ -2460,6 +2475,18 @@ function saveStack() {
   }
   saveCanvas(canvas, exportName("stack", "png"));
 }
+function rememberRenderedView() {
+  const product = state.product,
+    [min, max] = displayBounds(product),
+    layer = $("layer-output").textContent,
+    fixed = [...state.fixedIndices].map(([axis, value]) => `${product.axes[axis]}=${value}`);
+  state.heldFrame = {
+    name: product.name,
+    background: getComputedStyle(document.documentElement).getPropertyValue("--bg").trim(),
+    caption: `${state.perm.map(axis => product.axes[axis]).join(" × ")} · ${$("representation").textContent} · ${layer} · ${state.logScale ? "log" : "linear"} ${min.toPrecision(4)} to ${max.toPrecision(4)}${product.units ? ` ${product.units}` : ""}${fixed.length ? ` · ${fixed.join(", ")}` : ""}`,
+  };
+  $("hold-comparison").disabled = false;
+}
 function syncComparison() {
   $("comparison").hidden = state.heldViews.size === 0;
   $("comparison-count").textContent = `(${state.heldViews.size})`;
@@ -2477,10 +2504,10 @@ function clearComparison() {
   $("comparison-status").textContent = "Comparison cleared.";
 }
 function holdForComparison() {
-  if (!state.product || $("hold-comparison").disabled) return;
+  if (!state.heldFrame) return;
   const source = $("volume"),
     snapshot = document.createElement("canvas"),
-    product = state.product,
+    frame = state.heldFrame,
     id = ++state.nextHeldView,
     card = document.createElement("figure"),
     header = document.createElement("header"),
@@ -2492,30 +2519,27 @@ function holdForComparison() {
   snapshot.width = source.width;
   snapshot.height = source.height;
   const context = snapshot.getContext("2d");
-  context.fillStyle = getComputedStyle(document.documentElement).getPropertyValue("--bg").trim();
+  context.fillStyle = frame.background;
   context.fillRect(0, 0, snapshot.width, snapshot.height);
   context.drawImage(source, 0, 0);
   card.className = "comparison-card";
   card.setAttribute("role", "listitem");
-  title.textContent = `${id}. ${product.name}`;
+  title.textContent = `${id}. ${frame.name}`;
   remove.type = "button";
   remove.textContent = "Remove";
-  remove.setAttribute("aria-label", `Remove held view ${id}: ${product.name}`);
+  remove.setAttribute("aria-label", `Remove held view ${id}: ${frame.name}`);
   remove.onclick = () => removeHeldView(id);
-  preview.alt = `Held plot ${id}: ${product.name}`;
+  preview.alt = `Held plot ${id}: ${frame.name}`;
   preview.loading = "lazy";
   preview.hidden = true;
-  const [min, max] = displayBounds(product),
-    layer = $("layer-output").textContent,
-    fixed = [...state.fixedIndices].map(([axis, value]) => `${product.axes[axis]}=${value}`);
-  caption.textContent = `${state.perm.map(axis => product.axes[axis]).join(" × ")} · ${$("representation").textContent} · ${layer} · ${state.logScale ? "log" : "linear"} ${min.toPrecision(4)} to ${max.toPrecision(4)}${product.units ? ` ${product.units}` : ""}${fixed.length ? ` · ${fixed.join(", ")}` : ""}`;
+  caption.textContent = frame.caption;
   header.append(title, remove);
   card.append(header, preview, caption);
   const held = { card, url: null };
   state.heldViews.set(id, held);
   $("comparison-views").append(card);
   syncComparison();
-  $("comparison-status").textContent = `Held ${product.name}. ${state.heldViews.size} views in comparison.`;
+  $("comparison-status").textContent = `Held ${frame.name}. ${state.heldViews.size} views in comparison.`;
   snapshot.toBlob((blob) => {
     snapshot.width = snapshot.height = 0;
     // Removing/clearing during encoding must not resurrect a held view or leak URLs.
