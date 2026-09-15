@@ -55,6 +55,7 @@ def generate(output: Path, seed: int = 23) -> Path:
             },
             units="voltage",
             views=views,
+            primary_view="Phase",
         )
         # V_ij = <x_i conjugate(x_j)>; positive baseline b = r_i - r_j.
         i, j = np.tril_indices(len(positions), k=-1)
@@ -74,6 +75,7 @@ def generate(output: Path, seed: int = 23) -> Path:
             upstream=raw,
             operation="x_i × conjugate(x_j)",
             views=views,
+            primary_view="Phase",
         )
         visibility = cross.mean(axis=-1)
         vis_id = run.capture(
@@ -87,6 +89,7 @@ def generate(output: Path, seed: int = 23) -> Path:
             upstream=cross_id,
             operation="average samples",
             views=views,
+            primary_view="Phase",
         )
         scan = np.linspace(-60, 60, 601)
         kernel = np.exp(-2j * np.pi * baseline[:, None] * np.sin(np.deg2rad(scan)))

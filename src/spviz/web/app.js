@@ -1,6 +1,7 @@
 const state = {
   run: null,
   product: null,
+  captureGroups: [],
   viewAxes: [],
   perm: [],
   layer: 0,
@@ -1263,6 +1264,131 @@ function handleViewerError(error) {
   stopPlayback();
   setVolumeStatus(`Unable to load: ${error.message}`, true);
 }
+// A capture occupies one pipeline column; its views move along the vertical axis.
+function groupCaptures(products) {
+  const groups = new Map();
+  for (const product of products) {
+    const id = product.capture_id || product.id;
+    if (!groups.has(id)) groups.set(id, { id, name: product.capture_name || product.name, views: [] });
+    groups.get(id).views.push(product);
+  }
+  return [...groups.values()].map((group) => ({
+    ...group,
+    active: Math.max(0, group.views.findIndex((view) => view.is_primary || view.view_name === view.primary_view)),
+  }));
+}
+function markPrimary(group, index) {
+  group.active = index;
+  group.cards.forEach((card, i) => {
+    card.classList.toggle("primary", i === index);
+    card.setAttribute("aria-current", i === index ? "true" : "false");
+  });
+  group.previous.disabled = index === 0;
+  group.next.disabled = index === group.views.length - 1;
+  group.label.textContent = `${group.views[index].view_name || "Default"} · ${index + 1}/${group.views.length}`;
+}
+function centerView(group, index, behavior = "smooth") {
+  const card = group.cards[index];
+  group.viewport.scrollTo({
+    top: card.offsetTop - (group.viewport.clientHeight - card.offsetHeight) / 2,
+    behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "instant" : behavior,
+  });
+}
+function promoteView(group, index, focus = false) {
+  index = Math.max(0, Math.min(group.views.length - 1, index));
+  markPrimary(group, index);
+  centerView(group, index);
+  if (focus) group.cards[index].focus({ preventScroll: true });
+  selectProduct(group.views[index]).catch(handleViewerError);
+}
+function buildCaptureStack(group) {
+  const section = document.createElement("section"),
+    heading = document.createElement("h3"),
+    viewport = document.createElement("div"),
+    controls = document.createElement("div"),
+    previous = document.createElement("button"),
+    next = document.createElement("button"),
+    label = document.createElement("span");
+  section.className = "tap-stack";
+  section.setAttribute("aria-label", group.name);
+  heading.textContent = group.name;
+  viewport.className = "view-carousel";
+  viewport.setAttribute("aria-label", `${group.name} views`);
+  viewport.setAttribute("role", "group");
+  controls.className = "view-controls";
+  label.setAttribute("aria-live", "polite");
+  previous.type = next.type = "button";
+  previous.textContent = "↑";
+  next.textContent = "↓";
+  previous.setAttribute("aria-label", `Previous view of ${group.name}`);
+  next.setAttribute("aria-label", `Next view of ${group.name}`);
+  previous.onclick = () => promoteView(group, group.active - 1);
+  next.onclick = () => promoteView(group, group.active + 1);
+  Object.assign(group, { viewport, previous, next, label, cards: [] });
+  group.views.forEach((product, index) => {
+    const button = document.createElement("button"),
+      canvas = document.createElement("canvas"),
+      status = document.createElement("span"),
+      title = document.createElement("strong"),
+      details = document.createElement("span");
+    button.className = "product";
+    button.type = "button";
+    button.dataset.productId = product.id;
+    button.setAttribute("aria-label", `${group.name}: ${product.view_name || "Default"}`);
+    button.setAttribute("aria-pressed", "false");
+    canvas.setAttribute("aria-hidden", "true");
+    status.className = "product-status";
+    status.textContent = "Loading preview…";
+    title.textContent = product.view_name || "Default view";
+    details.textContent = `${product.shape.join(" × ")} · ${product.dtype}`;
+    button.append(canvas, status, title, details);
+    button.onclick = () => {
+      if (status.classList.contains("error")) drawOverview(product, canvas).catch(() => {});
+      promoteView(group, index);
+    };
+    viewport.append(button);
+    group.cards.push(button);
+  });
+  viewport.addEventListener("keydown", (event) => {
+    const index = { ArrowUp: group.active - 1, ArrowDown: group.active + 1, Home: 0, End: group.views.length - 1 }[event.key];
+    if (index === undefined) return;
+    event.preventDefault();
+    promoteView(group, index, true);
+  });
+  // Native vertical scrolling supports wheels and touch; horizontal gestures
+  // continue to scroll the pipeline. Snap settles before updating the inspector.
+  let settleTimer;
+  viewport.addEventListener("scroll", () => {
+    clearTimeout(settleTimer);
+    settleTimer = setTimeout(() => {
+      if (!viewport.isConnected) return;
+      const center = viewport.scrollTop + viewport.clientHeight / 2;
+      let nearest = 0;
+      group.cards.forEach((card, index) => {
+        const distance = Math.abs(card.offsetTop + card.offsetHeight / 2 - center),
+          best = group.cards[nearest];
+        if (distance < Math.abs(best.offsetTop + best.offsetHeight / 2 - center)) nearest = index;
+      });
+      if (nearest !== group.active) {
+        markPrimary(group, nearest);
+        selectProduct(group.views[nearest]).catch(handleViewerError);
+      }
+    }, 160);
+  }, { passive: true });
+  controls.append(previous, label, next);
+  controls.hidden = group.views.length === 1;
+  section.append(heading, viewport, controls);
+  markPrimary(group, group.active);
+  return section;
+}
+function redrawOverviews() {
+  const products = new Map(state.run?.products?.map((product) => [product.id, product]));
+  document.querySelectorAll(".product canvas").forEach((canvas) => {
+    const product = products.get(canvas.parentElement.dataset.productId);
+    if (product) drawOverview(product, canvas).catch(() => {});
+  });
+}
+
 async function build() {
   const inspector = $("inspector"),
     previousInspectorHidden = inspector.hidden;
@@ -1289,62 +1415,30 @@ async function build() {
       $("inspector").hidden = true;
       return;
     }
-    for (let i = 0; i < state.run.products.length; i++) {
-      const product = state.run.products[i];
-      if (i) {
-        const edge = document.createElement("div"),
-          operation = document.createElement("span"),
-          upstream = Array.isArray(product.upstream) ? product.upstream : [],
-          previous = state.run.products[i - 1],
-          sameCapture = product.capture_id && product.capture_id === previous.capture_id,
-          directlyConnected = upstream.includes(previous.capture_id || previous.id),
-          upstreamNames = upstream.map(
-            (id) =>
-              state.run.products.find((entry) => entry.id === id)?.name || id,
-          );
-        edge.className = directlyConnected ? "edge" : "edge disconnected";
-        operation.textContent = sameCapture ? "another view of the same tap" : directlyConnected
-          ? `${product.operation || "transform"}${upstreamNames.length > 1 ? ` · inputs ${upstreamNames.join(", ")}` : ""}`
-          : upstreamNames.length
-            ? `${product.operation || "transform"} · from ${upstreamNames.join(", ")}`
-            : "independent capture";
+    state.captureGroups = groupCaptures(state.run.products);
+    state.captureGroups.forEach((group, index) => {
+      if (index) {
+        const product = group.views[0],
+          upstream = product.upstream || [],
+          connected = upstream.includes(state.captureGroups[index - 1].id),
+          edge = document.createElement("div"),
+          label = document.createElement("span");
+        edge.className = connected ? "edge" : "edge disconnected";
+        const names = upstream.map((id) => state.captureGroups.find((entry) => entry.id === id)?.name || id);
+        label.textContent = connected
+          ? product.operation || "transform"
+          : names.length ? `${product.operation || "transform"} · from ${names.join(", ")}` : "independent capture";
         edge.setAttribute("role", "img");
-        edge.setAttribute(
-          "aria-label",
-          sameCapture ? "Another view of the same captured array" : directlyConnected
-            ? `${product.name} receives ${upstreamNames.join(", ")} via ${product.operation || "transform"}`
-            : upstreamNames.length
-              ? `${product.name} comes from ${upstreamNames.join(", ")}`
-              : `${product.name} has no recorded upstream product`,
-        );
-        edge.append(operation);
+        edge.setAttribute("aria-label", names.length ? `${group.name} receives ${names.join(", ")}` : `${group.name} has no recorded upstream product`);
+        edge.append(label);
         pipeline.append(edge);
       }
-      const button = document.createElement("button"),
-        canvas = document.createElement("canvas"),
-        status = document.createElement("span"),
-        title = document.createElement("strong"),
-        details = document.createElement("span");
-      button.className = "product";
-      button.type = "button";
-      button.setAttribute("aria-pressed", "false");
-      canvas.setAttribute("aria-hidden", "true");
-      status.className = "product-status";
-      status.textContent = "Loading preview…";
-      title.textContent = product.name;
-      details.textContent = `${product.shape.join(" × ")} · ${product.dtype}`;
-      button.append(canvas, status, title, details);
-      button.onclick = () => {
-        if (status.classList.contains("error"))
-          drawOverview(product, canvas).catch(() => {});
-        selectProduct(product).catch(handleViewerError);
-      };
-      pipeline.append(button);
-      drawOverview(product, canvas).catch(() => {});
-    }
-    await selectProduct(
-      state.run.products[Math.min(2, state.run.products.length - 1)],
-    );
+      pipeline.append(buildCaptureStack(group));
+    });
+    for (const group of state.captureGroups) centerView(group, group.active, "instant");
+    redrawOverviews();
+    const initial = state.captureGroups[0];
+    await selectProduct(initial.views[initial.active]);
   } catch (error) {
     inspector.hidden = previousInspectorHidden;
     throw error;
@@ -1394,8 +1488,8 @@ async function selectProduct(product) {
   viewSelect.querySelector('option[value="slices"]').disabled =
     state.viewAxes.length !== 2;
   $("aspect").value = state.aspect;
-  document.querySelectorAll(".product").forEach((element, index) => {
-    const selected = state.run.products[index].id === product.id;
+  document.querySelectorAll(".product").forEach((element) => {
+    const selected = element.dataset.productId === product.id;
     element.classList.toggle("selected", selected);
     element.setAttribute("aria-pressed", String(selected));
   });
@@ -2025,11 +2119,7 @@ $("view-mode").onchange = (event) => {
 };
 $("overview-aspect").onchange = (event) => {
   state.overviewAspect = event.target.value;
-  document
-    .querySelectorAll(".product canvas")
-    .forEach((canvas, index) =>
-      drawOverview(state.run?.products?.[index], canvas).catch(() => {}),
-    );
+  redrawOverviews();
 };
 $("play").onclick = (event) => {
   if (state.playing) {
@@ -2055,11 +2145,7 @@ $("play").onclick = (event) => {
 function redrawAppearance() {
   document.documentElement.dataset.theme = state.theme;
   updateScale();
-  document
-    .querySelectorAll(".product canvas")
-    .forEach((canvas, index) =>
-      drawOverview(state.run?.products?.[index], canvas).catch(() => {}),
-    );
+  redrawOverviews();
   scheduleDraw();
 }
 $("theme").onchange = (event) => {
@@ -2352,49 +2438,51 @@ function saveStack() {
   saveCanvas(canvas, exportName("stack", "png"));
 }
 function saveFullChain() {
-  const canvases = [...document.querySelectorAll(".product canvas")],
-    width = canvases.length * 260 + Math.max(0, canvases.length - 1) * 70,
+  const groups = state.captureGroups,
+    above = Math.max(0, ...groups.map((group) => group.active)),
+    below = Math.max(0, ...groups.map((group) => group.views.length - group.active - 1)),
+    width = Math.max(300, groups.length * 330),
+    height = 80 + (above + below + 1) * 280,
     canvas = document.createElement("canvas");
   canvas.width = width;
-  canvas.height = 340;
+  canvas.height = height;
   const context = canvas.getContext("2d");
   context.fillStyle = "#ffffff";
-  context.fillRect(0, 0, width, 340);
+  context.fillRect(0, 0, width, height);
   context.fillStyle = "#111827";
   context.font = "600 22px system-ui";
   context.fillText(state.run.name, 24, 34);
-  canvases.forEach((source, index) => {
-    const x = 20 + index * 330;
-    context.drawImage(source, x, 55, 220, 200);
-    const product = state.run.products[index];
-    context.fillStyle = "#111827";
-    context.font = "600 14px system-ui";
-    context.textAlign = "center";
-    context.fillText(product.name, x + 110, 280);
-    context.fillStyle = "#4b5568";
-    context.font = "12px ui-monospace,monospace";
-    context.fillText(product.shape.join(" × "), x + 110, 301);
-    const nextProduct = state.run.products[index + 1],
-      isConnected = nextProduct?.upstream?.includes(product.id);
-    if (isConnected) {
+  groups.forEach((group, column) => {
+    const x = 20 + column * 330;
+    group.views.forEach((product, index) => {
+      const y = 55 + (above + index - group.active) * 280;
+      context.globalAlpha = index === group.active ? 1 : 0.65;
+      context.drawImage(group.cards[index].querySelector("canvas"), x, y, 220, 200);
+      context.fillStyle = "#111827";
+      context.font = "600 14px system-ui";
+      context.textAlign = "center";
+      context.fillText(product.name, x + 110, y + 225, 250);
+      context.fillStyle = "#4b5568";
+      context.font = "12px ui-monospace,monospace";
+      context.fillText(`${product.shape.join(" × ")}${index === group.active ? " · primary" : ""}`, x + 110, y + 246);
+    });
+    context.globalAlpha = 1;
+    if (groups[column + 1]?.views[0].upstream?.includes(group.id)) {
+      const y = 155 + above * 280;
       context.strokeStyle = "#4b5568";
       context.beginPath();
-      context.moveTo(x + 230, 155);
-      context.lineTo(x + 315, 155);
+      context.moveTo(x + 230, y);
+      context.lineTo(x + 315, y);
       context.stroke();
       context.fillStyle = "#4b5568";
       context.beginPath();
-      context.moveTo(x + 315, 155);
-      context.lineTo(x + 305, 149);
-      context.lineTo(x + 305, 161);
+      context.moveTo(x + 315, y);
+      context.lineTo(x + 305, y - 6);
+      context.lineTo(x + 305, y + 6);
       context.fill();
     }
   });
-  context.textAlign = "left";
-  saveCanvas(
-    canvas,
-    `${state.run.name.replace(/[^a-z0-9_-]+/gi, "-").toLowerCase()}-chain.png`,
-  );
+  saveCanvas(canvas, `${state.run.name.replace(/[^a-z0-9_-]+/gi, "-").toLowerCase()}-chain.png`);
 }
 async function saveAnimation() {
   const button = $("save-animation"),
@@ -2555,11 +2643,7 @@ let resizeTimer = 0;
 window.addEventListener("resize", () => {
   clearTimeout(resizeTimer);
   resizeTimer = setTimeout(() => {
-    document
-      .querySelectorAll(".product canvas")
-      .forEach((canvas, index) =>
-        drawOverview(state.run?.products?.[index], canvas).catch(() => {}),
-      );
+    redrawOverviews();
     scheduleDraw();
   }, 100);
 });

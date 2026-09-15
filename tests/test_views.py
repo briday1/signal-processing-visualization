@@ -36,6 +36,8 @@ class ViewsTests(unittest.TestCase):
             store = RunStore(path)
             amplitude, phase, output = store.manifest["products"]
             self.assertEqual(amplitude["file"], phase["file"])
+            self.assertTrue(amplitude["is_primary"])
+            self.assertFalse(phase["is_primary"])
             self.assertEqual(output["upstream"], [amplitude["id"]])
             self.assertEqual(phase["units"], "rad")
             self.assertAlmostEqual(phase["display_min"], -np.pi)
@@ -60,6 +62,56 @@ class ViewsTests(unittest.TestCase):
                 )
                 np.testing.assert_allclose(data, expected, atol=1e-6)
 
+    def test_primary_view_round_trip_and_validation(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "run"
+            with spviz.Session(path) as session:
+                for primary, views in [
+                    ("missing", {"Amplitude": {}}),
+                    ("Phase", None),
+                    (3, {"Phase": {}}),
+                ]:
+                    with self.subTest(primary=primary), self.assertRaises(ValueError):
+                        session.capture(
+                            "bad",
+                            np.ones(4, complex),
+                            views=views,
+                            primary_view=primary,
+                        )
+                self.assertEqual(session.products, [])
+                self.assertEqual(list((session._storage_path / "arrays").iterdir()), [])
+                spviz.capture(
+                    "IQ",
+                    np.ones(4, complex),
+                    views={
+                        "Amplitude": {"representation": "magnitude"},
+                        "Phase": {"representation": "phase"},
+                        "Power": {"representation": "power"},
+                    },
+                    primary_view="Phase",
+                )
+            stored = json.loads((path / "manifest.json").read_text())
+            self.assertEqual(stored["products"][0]["primary_view"], "Phase")
+            expanded = RunStore(path).manifest["products"]
+            self.assertEqual(
+                [view["is_primary"] for view in expanded], [False, True, False]
+            )
+            self.assertEqual(
+                expanded[0]["id"],
+                "iq",
+                "Primary choice must not change lineage identity",
+            )
+            site = export_static(path, Path(directory) / "site")
+            exported = json.loads((site / "data/run.json").read_text())
+            self.assertEqual(
+                [view["is_primary"] for view in exported["products"]],
+                [False, True, False],
+            )
+            stored["products"][0]["primary_view"] = "unknown"
+            (path / "manifest.json").write_text(json.dumps(stored))
+            with self.assertRaisesRegex(ValueError, "primary_view"):
+                RunStore(path)
+
     def test_invalid_views_fail_before_array_write(self):
         with (
             tempfile.TemporaryDirectory() as directory,
@@ -83,10 +135,11 @@ class ViewsTests(unittest.TestCase):
             recorder = spviz.init(Path(directory) / "run")
 
             @spviz.instrument(
+                primary_view="Imaginary",
                 views={
                     "Real": {"representation": "real"},
                     "Imaginary": {"representation": "imag"},
-                }
+                },
             )
             def transform(value):
                 return value * 1j
@@ -97,6 +150,7 @@ class ViewsTests(unittest.TestCase):
             recorder.close()
             store = RunStore(recorder.path)
             self.assertEqual(len(store.products), 3)
+            self.assertTrue(store.products["transform--view-2"]["is_primary"])
             self.assertEqual(store.products["transform"]["upstream"], ["source"])
 
     def test_interferometry_recovers_angle_and_visibility_phase(self):

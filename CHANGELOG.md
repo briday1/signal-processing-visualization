@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Stack alternate views vertically per tap, with scroll, touch, and keyboard navigation.
+- Add `primary_view` to choose the initially centered view through the Python API.
+- Keep full-chain PNG exports aligned around each tap’s current primary view.
+
 - Add named amplitude, phase, and other views per tap, sharing one stored array.
 - Support independent view inspection and static gallery exports.
 - Update radar examples and add a narrowband aperture interferometry example.

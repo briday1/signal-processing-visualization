@@ -291,6 +291,8 @@ class RunStore:
                     raise ValueError(
                         f"Product {product_id!r} coordinate data for {axis!r} has the wrong shape"
                     )
+            if product.get("primary_view") is not None and "views" not in product:
+                raise ValueError("primary_view requires named views")
             if "views" in product:
                 from .views import resolve_views
 
