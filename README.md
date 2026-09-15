@@ -182,14 +182,25 @@ Pass a `views` dictionary to `spviz.tap`, `Recorder.tap`, `instrument`, or
 `Session.capture` to show named plots of the same captured array:
 
 ```python
-spviz.tap(iq, "Receiver I/Q", axes=["receiver", "sample"], views={
+spviz.tap(iq, "Receiver I/Q", axes=["receiver", "sample"], primary_view="Amplitude", views={
     "Amplitude": {"representation": "magnitude", "units": "V"},
     "Phase": {"representation": "phase"},
 })
 ```
 
-Each view appears as a separate selectable plot, labeled with its tap and view
-name. The array and coordinates are saved once, and downstream lineage still
+Each tap occupies one horizontal pipeline column. Its views form a vertical
+scrolling stack with the primary view centered and neighboring plots visible
+above or below. Scroll or swipe vertically, click an adjacent plot, or use the
+up/down buttons (or arrow keys while a plot is focused) to promote another view.
+Horizontal scrolling still moves along the processing pipeline.
+
+Set `primary_view="Amplitude"` to select the initial view by name. When omitted,
+the first entry in `views` is primary. Unknown names are rejected. This option is
+available on `spviz.tap`, `Recorder.tap`, both `instrument` APIs, `spviz.capture`,
+and `Session.capture`. Changing the primary in the viewer applies to that tap
+for the current page; it does not rewrite the capture or its API default.
+The full-chain PNG keeps views vertically aligned around the current primaries.
+ The array and coordinates are saved once, and downstream lineage still
 refers to the original tap. Each plot has independent inspection controls.
 Named views replace the single default plot; omitting `views` keeps existing
 behavior. Both the local viewer and static exports support them.

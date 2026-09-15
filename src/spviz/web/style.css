@@ -370,3 +370,80 @@ dd {
     display: none;
   }
 }
+
+/* One horizontal processing column per tap; alternate views scroll vertically. */
+.tap-stack {
+  flex: 0 0 230px;
+  min-width: 0;
+}
+.tap-stack h3 {
+  height: 36px;
+  margin: 0;
+  text-align: center;
+  font-size: 14px;
+  line-height: 18px;
+  overflow: hidden;
+}
+.view-carousel {
+  position: relative;
+  height: 420px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-block: 90px;
+  scroll-snap-type: y mandatory;
+  overscroll-behavior-y: contain;
+  scrollbar-width: thin;
+  scrollbar-color: var(--line) transparent;
+  mask-image: linear-gradient(transparent, black 8%, black 92%, transparent);
+}
+.view-carousel .product {
+  display: block;
+  width: 210px;
+  height: 240px;
+  margin: 0 auto;
+  scroll-snap-align: center;
+  scroll-snap-stop: always;
+  opacity: 0.48;
+  transform: scale(0.85);
+  transition: opacity 180ms, transform 180ms;
+}
+.view-carousel .product.primary {
+  opacity: 1;
+  transform: scale(1);
+}
+.view-carousel .product:focus-visible {
+  outline: 2px solid #6177ff;
+  outline-offset: -2px;
+  opacity: 1;
+}
+.view-controls {
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+.view-controls[hidden] {
+  display: flex;
+  visibility: hidden;
+}
+.view-controls span {
+  font-size: 11px;
+  color: var(--muted);
+  text-align: center;
+}
+.view-controls button {
+  padding: 3px 9px;
+  font-size: 16px;
+}
+.view-controls button:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+@media (prefers-reduced-motion: reduce) {
+  .view-carousel .product { transition: none; }
+}
+@media (max-width: 780px) {
+  .tap-stack { flex-basis: 190px; }
+  .view-carousel .product { width: 170px; }
+}

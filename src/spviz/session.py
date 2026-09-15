@@ -420,6 +420,7 @@ class Session:
         coordinates: dict[str | int, Any] | None = None,
         filename: str | Path | None = None,
         views: dict[str, dict[str, Any]] | None = None,
+        primary_view: str | None = None,
         representation: Representation = "auto",
         statistics: Statistics = "exact",
         scale: Scale = "linear",
@@ -443,6 +444,7 @@ class Session:
                 coordinates=coordinates,
                 filename=filename,
                 views=views,
+                primary_view=primary_view,
                 representation=representation,
                 statistics=statistics,
                 scale=scale,
@@ -465,6 +467,7 @@ class Session:
         coordinates: dict[str | int, Any] | None = None,
         filename: str | Path | None = None,
         views: dict[str, dict[str, Any]] | None = None,
+        primary_view: str | None = None,
         representation: Representation = "auto",
         statistics: Statistics = "exact",
         scale: Scale = "linear",
@@ -735,7 +738,10 @@ class Session:
             "metadata": product_metadata,
             "stats": stats,
         }
+        if primary_view is not None and views is None:
+            raise ValueError("primary_view requires named views")
         if views is not None:
+            product["primary_view"] = primary_view
             from .views import resolve_views
 
             configurations = resolve_views(views, product)
@@ -819,6 +825,7 @@ def capture(
     coordinates: dict[str | int, Any] | None = None,
     filename: str | Path | None = None,
     views: dict[str, dict[str, Any]] | None = None,
+    primary_view: str | None = None,
     representation: Representation = "auto",
     statistics: Statistics = "exact",
     scale: Scale = "linear",
@@ -839,6 +846,7 @@ def capture(
         coordinates=coordinates,
         filename=filename,
         views=views,
+        primary_view=primary_view,
         representation=representation,
         statistics=statistics,
         scale=scale,

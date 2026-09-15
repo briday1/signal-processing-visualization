@@ -10,6 +10,10 @@ import numpy as np
 def resolve_views(views, product):
     if not isinstance(views, dict) or not views:
         raise ValueError("views must be a non-empty dictionary of named configurations")
+    primary = product.get("primary_view")
+    if primary is not None and (not isinstance(primary, str) or primary not in views):
+        raise ValueError("primary_view must name one of the configured views")
+    primary = primary if primary is not None else next(iter(views))
     result = []
     allowed = {
         "representation",
@@ -98,6 +102,8 @@ def resolve_views(views, product):
             )
         view["view_axes"] = resolved
         view["view_name"] = name
+        view["primary_view"] = primary
+        view["is_primary"] = name == primary
         result.append(view)
     return result
 
