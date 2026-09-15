@@ -132,6 +132,18 @@ class ServerTests(unittest.TestCase):
                         response.headers["Content-Security-Policy"],
                     )
 
+                with urllib.request.urlopen(
+                    base + f"/?viewer={product_id}"
+                ) as response:
+                    self.assertEqual(response.status, 200)
+                    self.assertIn(
+                        "frame-src 'self'", response.headers["Content-Security-Policy"]
+                    )
+                    self.assertIn(
+                        "frame-ancestors 'self'",
+                        response.headers["Content-Security-Policy"],
+                    )
+
                 connection = http.client.HTTPConnection("127.0.0.1", server.server_port)
                 connection.putrequest(
                     "GET", "/../session.py", skip_accept_encoding=True

@@ -59,12 +59,13 @@
       <section id="comparison" class="comparison" aria-labelledby="comparison-title" hidden>
         <div class="section-head">
           <div>
-            <h2 id="comparison-title">Held views <span id="comparison-count"></span></h2>
-            <p>Frozen plots for side-by-side comparison. Scroll horizontally to see more.</p>
+            <h2 id="comparison-title">Compare viewers <span id="comparison-count"></span></h2>
+            <p>Interact with each viewer independently, or link navigation for matching dimensions.</p>
           </div>
+          <label class="check"><input id="link-comparison" type="checkbox" /> Link compatible viewers</label>
           <button id="clear-comparison" type="button">Clear all</button>
         </div>
-        <div id="comparison-views" class="comparison-views" role="list" aria-label="Held views" tabindex="0"></div>
+        <div id="comparison-views" class="comparison-views" role="list" aria-label="Compare viewers" tabindex="0"></div>
       </section>
       <section
         id="inspector"
@@ -82,7 +83,7 @@
           </button>
         </div>
         <div class="export-actions" aria-label="Export figures">
-          <button id="hold-comparison" type="button" disabled>Hold for comparison</button>
+          <button id="hold-comparison" type="button" disabled>Add to comparison</button>
           <button id="save-layer" type="button">Save layer PNG</button
           ><button id="save-stack" type="button">Save stack PNG</button
           ><button id="save-animation" type="button">Save animation GIF</button
