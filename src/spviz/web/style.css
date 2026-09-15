@@ -371,9 +371,10 @@ dd {
   }
 }
 
-/* One horizontal processing column per tap; alternate views scroll vertically. */
+/* Keep native vertical scrolling, projected onto the overview depth axis.
+   Counter-rotate cards so the plots and labels stay upright. */
 .tap-stack {
-  flex: 0 0 230px;
+  flex: 0 0 350px;
   min-width: 0;
 }
 .tap-stack h3 {
@@ -387,6 +388,8 @@ dd {
 .view-carousel {
   position: relative;
   height: 420px;
+  margin-block: 65px;
+  transform: rotate(45deg);
   overflow-y: auto;
   overflow-x: hidden;
   padding-block: 90px;
@@ -404,12 +407,12 @@ dd {
   scroll-snap-align: center;
   scroll-snap-stop: always;
   opacity: 0.48;
-  transform: scale(0.85);
+  transform: rotate(-45deg) scale(0.85);
   transition: opacity 180ms, transform 180ms;
 }
 .view-carousel .product.primary {
   opacity: 1;
-  transform: scale(1);
+  transform: rotate(-45deg) scale(1);
 }
 .view-carousel .product:focus-visible {
   outline: 2px solid #6177ff;
@@ -444,6 +447,9 @@ dd {
   .view-carousel .product { transition: none; }
 }
 @media (max-width: 780px) {
-  .tap-stack { flex-basis: 190px; }
+  .tap-stack { flex-basis: 320px; }
   .view-carousel .product { width: 170px; }
 }
+
+/* Room for diagonal previews at the two ends of the horizontal pipeline. */
+.pipeline { padding-inline: 95px; }
