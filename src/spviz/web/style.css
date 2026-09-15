@@ -374,7 +374,7 @@ dd {
 /* Keep native vertical scrolling, projected onto the overview depth axis.
    Counter-rotate cards so the plots and labels stay upright. */
 .tap-stack {
-  flex: 0 0 350px;
+  flex: 0 0 230px;
   min-width: 0;
 }
 .tap-stack h3 {
@@ -389,6 +389,8 @@ dd {
   position: relative;
   height: 420px;
   margin-block: 65px;
+  width: calc(100% + 70px);
+  margin-inline: -35px;
   transform: rotate(20deg);
   overflow-y: auto;
   overflow-x: hidden;
@@ -454,9 +456,9 @@ dd {
   .view-carousel .product { transition: none; }
 }
 @media (max-width: 780px) {
-  .tap-stack { flex-basis: 320px; }
+  .tap-stack { flex-basis: 190px; }
   .view-carousel .product { width: 170px; }
 }
 
 /* Room for diagonal previews at the two ends of the horizontal pipeline. */
-.pipeline { padding-inline: 95px; }
+.pipeline { padding-inline: 55px; }
