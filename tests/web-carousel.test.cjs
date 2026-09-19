@@ -103,7 +103,7 @@ const pair = context.groupCaptures(products.slice(0,2))[0];
 context.buildCaptureStack(pair);
 context.centerView(pair, pair.active, 'instant');
 assert.equal(scale(pair.cards[0]), 0.25);
-assert.ok(Math.abs(parseFloat(pair.cards[0].style['--view-shift'])) >= 160);
+assert.ok(Math.abs(parseFloat(pair.cards[0].style['--view-shift'])) >= 130);
 pair.next.onclick();
 assert.equal(pair.active, 0);
 pair.next.onclick();

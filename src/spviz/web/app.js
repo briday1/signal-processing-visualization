@@ -1175,6 +1175,8 @@ function bitmapFor(slice, min, max, log, scope) {
   return canvas;
 }
 async function drawOverview(product, canvas) {
+  const version = (canvas._previewVersion || 0) + 1;
+  canvas._previewVersion = version;
   const status = canvas.parentElement.querySelector(".product-status");
   status.hidden = false;
   status.textContent = "Loading preview…";
@@ -1186,6 +1188,7 @@ async function drawOverview(product, canvas) {
         ? staticAssetUrl(`${staticBase}/previews/${encodeURIComponent(product.id)}.png`)
         : `/api/product/${encodeURIComponent(product.id)}/preview.png`;
       await image.decode();
+      if (canvas._previewVersion !== version) return;
       canvas.width = 640;
       canvas.height = 480;
       canvas.getContext("2d").drawImage(image, 0, 0, 640, 480);
@@ -1197,8 +1200,8 @@ async function drawOverview(product, canvas) {
         product.axes.indexOf(name),
       ),
       depth = axes.length === 3 ? product.shape[axes[0]] : 1,
-      count = Math.min(6, depth),
-      volume = await getVolume(product, axes, 64, count),
+      count = Math.min(12, depth),
+      volume = await getVolume(product, axes, 96, count),
       planeSize = volume.rows * volume.columns,
       slices = Array.from({ length: volume.depth }, (_, position) => ({
         ...volume,
@@ -1211,6 +1214,8 @@ async function drawOverview(product, canvas) {
       { context, width, height } = canvasSize(canvas),
       log = product.representation !== "phase" && product.scale === "log",
       [min, max] = scaleBounds(product, log);
+    slices[0] = await getSlice(product, axes, 0, 96);
+    if (canvas._previewVersion !== version) return;
     if (axes.length === 1) {
       drawTrace(
         context,
@@ -1226,28 +1231,23 @@ async function drawOverview(product, canvas) {
       );
     } else {
       const overviewAspect = product.overview_aspect || state.overviewAspect,
-        boxWidth = width - 52,
-        boxHeight = height - 75,
-        dataAspect =
-          volume.source_plane_shape[1] /
-          Math.max(1, volume.source_plane_shape[0]),
+        ratio = width / 640,
+        offsetX = 16 * ratio, offsetY = -11 * ratio,
+        boxWidth = Math.max(1, width - 190 * ratio - offsetX * (slices.length - 1)),
+        boxHeight = Math.max(1, height - 120 * ratio + offsetY * (slices.length - 1)),
+        dataAspect = volume.source_plane_shape[1] / Math.max(1, volume.source_plane_shape[0]),
         aspect = overviewAspect === "equal" ? 1 : dataAspect,
-        planeWidth =
-          overviewAspect === "fit"
-            ? boxWidth
-            : Math.min(boxWidth, boxHeight * aspect),
-        planeHeight =
-          overviewAspect === "fit"
-            ? boxHeight
-            : Math.min(boxHeight, boxWidth / aspect),
-        baseX = 18 + (boxWidth - planeWidth) / 2,
-        baseY = 32 + (boxHeight - planeHeight) / 2;
+        planeWidth = overviewAspect === "fit" ? boxWidth : Math.min(boxWidth, boxHeight * aspect),
+        planeHeight = overviewAspect === "fit" ? boxHeight : planeWidth / aspect,
+        baseX = (width - planeWidth - offsetX * (slices.length - 1)) / 2 + 35 * ratio,
+        baseY = (height - planeHeight + offsetY * (slices.length - 1) - 50 * ratio) / 2 - offsetY * (slices.length - 1);
+      context.imageSmoothingEnabled = false;
       for (let i = slices.length - 1; i >= 0; i--) {
-        const dx = i * 6,
-          dy = -i * 6,
+        const dx = i * offsetX,
+          dy = i * offsetY,
           image = bitmapFor(slices[i], min, max, log, "overview");
         context.save();
-        context.globalAlpha = 0.22;
+        context.globalAlpha = i === 0 ? 1 : 0.25;
         context.drawImage(
           image,
           baseX + dx,
@@ -1346,7 +1346,7 @@ function updateViewDepth(group) {
       // Three faces occupy the visible arc; additional choices pass behind it.
       angle = distance * (count === 2 ? Math.PI : 2 * Math.PI / 3),
       depth = (1 - Math.cos(angle)) / 2,
-      y = count === 2 ? -170 * depth + 60 * Math.sin(angle) : 190 * Math.sin(angle),
+      y = count === 2 ? -140 * depth + 50 * Math.sin(angle) : 150 * Math.sin(angle),
       x = count === 2 ? 16 * Math.sin(angle) : 24 * depth + y * 0.06,
       rear = count <= 2 ? 1 : Math.max(0, Math.min(1, (1.5 - Math.abs(distance)) * 4));
     card.style.setProperty("--view-x", `${x}px`);
@@ -1525,7 +1525,7 @@ let overviewObserver;
 const overviewQueue = [];
 let overviewWorkers = 0;
 function queueOverview(product, canvas) {
-  if (canvas.dataset.queued) return;
+  if (canvas.dataset.queued) { canvas.dataset.redraw = "true"; return; }
   canvas.dataset.queued = "true";
   overviewQueue.push({ product, canvas });
   drainOverviews();
@@ -1538,6 +1538,10 @@ function drainOverviews() {
     drawOverview(product, canvas).catch(() => {}).finally(() => {
       delete canvas.dataset.queued;
       overviewWorkers--;
+      if (canvas.dataset.redraw) {
+        delete canvas.dataset.redraw;
+        queueOverview(product, canvas);
+      }
       drainOverviews();
     });
   }
@@ -1644,7 +1648,20 @@ async function selectProduct(product) {
   state.scaleMax = 1;
   state.logScale = product.scale === "log";
   state.viewMode = "surface";
-  state.aspect = "data";
+  state.aspect = product.overview_aspect || state.overviewAspect;
+  state.yaw = 0.3;
+  state.pitch = 0;
+  state.isolate = false;
+  state.opacity = 0.25;
+  state.currentOpacity = 1;
+  state.opacityLinked = false;
+  $("isolate").checked = false;
+  $("opacity").value = 25;
+  $("current-opacity").value = 100;
+  $("link-opacity").textContent = "Link opacity: off";
+  $("link-opacity").setAttribute("aria-pressed", "false");
+  $("opacity-output").textContent = "25%";
+  $("current-opacity-output").textContent = "100%";
   const representation = product.representation || "auto",
     binary = isBinaryProduct(product),
     cyclic = representation === "phase";

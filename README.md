@@ -249,8 +249,7 @@ the regular viewer; the local server permits embedding only from the same origin
 Mini views occupy one pipeline column: the focused plot is full size, with separate quarter-size neighbors above and below. Scroll, drag, or use
 Up/Down to rotate through the shallow depth carousel in either direction; the last
 view wraps to the first. The list between the up/down arrows shows the available views and lets you select one directly; the API's `primary_view` remains the initial face.
-Default previews are saved as 640 × 480 transparent PNGs, sampled at up to 512
-values per axis, with no volume download needed to display them. Local serving
+Default previews are saved as 640 × 480 transparent PNGs, using the inspector’s initial slice, color transfer, and 96-density sample grid, with no volume download needed to display them. Local serving
 reuses a bounded disk cache in the captured run's `.spviz-previews` directory and
 revalidates PNGs when source files or display settings change. Read-only runs
 still work, but cannot persist newly generated previews. Custom overview palettes

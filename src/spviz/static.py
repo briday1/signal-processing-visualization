@@ -11,6 +11,9 @@ from copy import deepcopy
 from importlib.resources import files
 from pathlib import Path
 
+import numpy as np
+
+from .previews import PREVIEW_VERSION, preview_png
 from .server import RunStore
 
 DEFAULT_MAX_VOLUME_BYTES = 16_000_000
@@ -148,9 +151,9 @@ def _export_into(store: RunStore, output: Path, per_volume_budget: int) -> None:
 
     export_manifest = deepcopy(store.manifest)
     export_manifest["static_export"] = {
-        "revision": hashlib.sha256(repr(_source_signature(store)).encode()).hexdigest()[
-            :16
-        ],
+        "revision": hashlib.sha256(
+            repr((_source_signature(store), PREVIEW_VERSION)).encode()
+        ).hexdigest()[:16],
         "progressive": True,
         "previews": True,
         "volume_count": _volume_count(store.manifest),
@@ -162,8 +165,6 @@ def _export_into(store: RunStore, output: Path, per_volume_budget: int) -> None:
     capped_volumes = 0
     for product in store.manifest["products"]:
         product_id = product["id"]
-        _, png = store.preview(product_id)
-        (previews / f"{product_id}.png").write_bytes(png)
         for axis in range(len(product["axes"])):
             payload = store.coordinates(product_id, axis)
             (coordinates / f"{product_id}--{axis}.json").write_text(
@@ -255,6 +256,24 @@ def _export_into(store: RunStore, output: Path, per_volume_budget: int) -> None:
                 json.dumps(context_metadata, separators=(",", ":")), encoding="utf-8"
             )
             (contexts / f"{stem}.f32").write_bytes(context_body)
+            if list(permutation) == view_axes:
+                # The inspector downsamples the exported layer, not the source
+                # array. Match that exact grid even when export budgets cap it.
+                plane = np.frombuffer(body, dtype="<f4").reshape(metadata["shape"])[0]
+                row_indices = np.floor(
+                    np.linspace(0, plane.shape[0] - 1, min(96, plane.shape[0])) + 0.5
+                ).astype(int)
+                column_indices = np.floor(
+                    np.linspace(0, plane.shape[1] - 1, min(96, plane.shape[1])) + 0.5
+                ).astype(int)
+                selected = plane[np.ix_(row_indices, column_indices)]
+                png = preview_png(
+                    store,
+                    product_id,
+                    sampled=(context_metadata, context_body),
+                    selected=selected,
+                )
+                (previews / f"{product_id}.png").write_bytes(png)
 
     export_manifest["static_export"].update(
         {"volume_bytes": exported_volume_bytes, "capped_volumes": capped_volumes}
