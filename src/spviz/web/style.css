@@ -371,7 +371,7 @@ dd {
   }
 }
 
-/* Native vertical snapping with separated, continuously scaled miniatures. */
+/* A shallowly tilted depth orbit, with no scrolling endpoints. */
 .tap-stack {
   flex: 0 0 230px;
   min-width: 0;
@@ -386,32 +386,25 @@ dd {
 }
 .view-carousel {
   position: relative;
-  height: 408px;
+  height: 480px;
   margin-block: 4px;
   width: 100%;
-  overflow-y: auto;
-  overflow-x: hidden;
-  padding-block: 84px;
-  scroll-snap-type: y mandatory;
-  overscroll-behavior-y: contain;
-  scrollbar-width: none;
-  scrollbar-color: var(--line) transparent;
+  overflow: hidden;
+  perspective: 800px;
+  touch-action: pan-x pinch-zoom;
+  user-select: none;
 }
 .view-carousel .product {
+  position: absolute;
+  top: 50%;
+  left: 50%;
   display: block;
   width: 210px;
   height: 240px;
-  margin: 0 auto;
-  scroll-snap-align: center;
-  scroll-snap-stop: always;
+  margin: -120px 0 0 -105px;
   z-index: 1;
-  opacity: 1;
-  transform: translateY(var(--view-shift, 0px)) scale(var(--view-scale, 0.25));
-  /* Scroll position supplies continuous interpolation, without a delayed snap. */
-}
-/* Normal, non-overlapping snap targets; scaled visual spacing is computed above. */
-.view-carousel .product:not(:last-child) {
-  margin-bottom: 12px;
+  opacity: var(--view-opacity, 1);
+  transform: translate(var(--view-x, 0px), var(--view-shift, 0px)) rotateY(var(--view-tilt, 0deg)) scale(var(--view-scale, 0.25));
 }
 .view-carousel .product:focus-visible {
   outline: 2px solid #6177ff;
@@ -419,7 +412,7 @@ dd {
   opacity: 1;
 }
 .view-controls {
-  height: 36px;
+  min-height: 76px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -447,7 +440,7 @@ dd {
 }
 @media (max-width: 780px) {
   .tap-stack { flex-basis: 190px; }
-  .view-carousel .product { width: 170px; }
+  .view-carousel .product { width: 170px; margin-left: -85px; }
 }
 
 /* Keep a little breathing room at the pipeline ends. */
@@ -499,28 +492,21 @@ dd {
 
 .embedded-viewer body > header { min-height: 0; padding: 8px 12px; justify-content: flex-end; }
 
-/* Discover every view without cycling the plot carousel. */
-.view-choices {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 5px;
-  max-height: 84px;
-  overflow-y: auto;
-  padding: 4px;
-  scrollbar-width: thin;
-}
-.view-choice {
-  font: inherit;
-  font-size: 11px;
-  padding: 4px 7px;
+/* The view list stays beside the up/down controls below each orbit. */
+.view-list {
+  width: 142px;
+  padding: 3px;
   border: 1px solid var(--line);
   border-radius: 5px;
-  background: transparent;
-  color: var(--muted);
-}
-.view-choice[aria-pressed="true"] {
+  background: var(--bg);
   color: var(--text);
-  border-color: #6177ff;
-  background: rgba(97, 119, 255, 0.16);
+  font: 12px/1.4 system-ui;
+}
+.view-list option { padding: 3px 6px; }
+.view-announcement {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
 }

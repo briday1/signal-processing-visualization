@@ -1334,67 +1334,88 @@ function groupCaptures(products) {
     active: Math.max(0, group.views.findIndex((view) => view.is_primary || view.view_name === view.primary_view)),
   }));
 }
+function wrapView(index, count) {
+  return ((index % count) + count) % count;
+}
 function updateViewDepth(group) {
-  const center = group.viewport.scrollTop + group.viewport.clientHeight / 2,
-    height = group.cards[0].offsetHeight,
-    stride = group.cards.length > 1
-      ? Math.max(1, group.cards[1].offsetTop - group.cards[0].offsetTop)
-      : height,
-    position = Math.max(0, Math.min(group.cards.length - 1,
-      (center - group.cards[0].offsetTop - height / 2) / stride)),
-    left = Math.floor(position),
-    fraction = position - left,
-    scales = group.cards.map((_, index) => {
-      const t = Math.min(1, Math.abs(index - position));
-      return 0.25 + 0.75 * (1 - t * t * (3 - 2 * t));
-    }),
-    gap = 12,
-    centers = [];
-  // Pack the *scaled* rectangles with a real gap, including during a swipe.
-  // Native layout remains stable so wheel/touch snapping never moves its targets.
-  centers[left] = -fraction * (height * (scales[left] + (scales[left + 1] ?? scales[left])) / 2 + gap);
-  for (let i = left + 1; i < scales.length; i++)
-    centers[i] = centers[i - 1] + height * (scales[i - 1] + scales[i]) / 2 + gap;
-  for (let i = left - 1; i >= 0; i--)
-    centers[i] = centers[i + 1] - height * (scales[i + 1] + scales[i]) / 2 - gap;
+  const count = group.cards.length, position = group.position ?? group.active;
   group.cards.forEach((card, index) => {
-    const naturalCenter = card.offsetTop + height / 2 - center;
-    card.style.setProperty("--view-shift", `${centers[index] - naturalCenter}px`);
-    card.style.setProperty("--view-scale", String(scales[index]));
-    card.style.setProperty("--view-opacity", String(0.65 + 0.35 * (scales[index] - 0.25) / 0.75));
+    const distance = count === 1 ? 0 : wrapView(index - position + count / 2, count) - count / 2,
+      t = Math.min(1, Math.abs(distance)),
+      focus = 1 - t * t * (3 - 2 * t),
+      // Three faces occupy the visible arc; additional choices pass behind it.
+      angle = distance * (count === 2 ? Math.PI : 2 * Math.PI / 3),
+      depth = (1 - Math.cos(angle)) / 2,
+      y = count === 2 ? -170 * depth + 60 * Math.sin(angle) : 190 * Math.sin(angle),
+      x = count === 2 ? 16 * Math.sin(angle) : 24 * depth + y * 0.06,
+      rear = count <= 2 ? 1 : Math.max(0, Math.min(1, (1.5 - Math.abs(distance)) * 4));
+    card.style.setProperty("--view-x", `${x}px`);
+    card.style.setProperty("--view-shift", `${y}px`);
+    card.style.setProperty("--view-scale", String(0.25 + 0.75 * focus));
+    card.style.setProperty("--view-opacity", String(rear));
+    card.style.setProperty("--view-tilt", `${-8 * Math.sin(angle)}deg`);
+    card.style.zIndex = String(1 + Math.round(focus * 100));
+    card.style.visibility = rear === 0 ? "hidden" : "visible";
+    card.style.pointerEvents = rear < 0.2 ? "none" : "auto";
   });
 }
-
 function markPrimary(group, index) {
-  group.active = index;
+  group.active = wrapView(index, group.views.length);
   group.cards.forEach((card, i) => {
-    card.classList.toggle("primary", i === index);
-    card.setAttribute("aria-current", i === index ? "true" : "false");
+    card.classList.toggle("primary", i === group.active);
+    card.setAttribute("aria-current", String(i === group.active));
   });
-  group.choices?.forEach((choice, i) => choice.setAttribute("aria-pressed", String(i === index)));
-  group.previous.disabled = index === 0;
-  group.next.disabled = index === group.views.length - 1;
-  group.label.textContent = `${group.views[index].view_name || "Default"} · ${index + 1}/${group.views.length}`;
+  group.viewList.value = String(group.active);
+  group.previous.disabled = group.next.disabled = group.views.length < 2;
+  group.label.textContent = `${group.views[group.active].view_name || "Default"} · ${group.active + 1}/${group.views.length}`;
+}
+function animateViewPosition(group, target, behavior = "smooth") {
+  cancelAnimationFrame(group.animation);
+  group.target = target;
+  const start = group.position ?? group.active;
+  if (behavior === "instant" || matchMedia("(prefers-reduced-motion: reduce)").matches) {
+    group.position = target;
+    updateViewDepth(group);
+    return;
+  }
+  const started = performance.now();
+  const frame = now => {
+    if (!group.viewport.isConnected) return;
+    const t = Math.min(1, (now - started) / 260), ease = 1 - (1 - t) ** 3;
+    group.position = start + (target - start) * ease;
+    updateViewDepth(group);
+    if (t < 1) group.animation = requestAnimationFrame(frame);
+  };
+  group.animation = requestAnimationFrame(frame);
 }
 function centerView(group, index, behavior = "smooth") {
-  const card = group.cards[index];
-  group.viewport.scrollTo({
-    top: card.offsetTop - (group.viewport.clientHeight - card.offsetHeight) / 2,
-    behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "instant" : behavior,
-  });
-  updateViewDepth(group);
+  const count = group.views.length, base = group.target ?? group.position ?? group.active,
+    requested = index - group.active;
+  let step = wrapView(index - wrapView(base, count) + count / 2, count) - count / 2;
+  // With two faces either path is equally short; honor the arrow direction.
+  if (Math.abs(step) === count / 2 && requested > 0) step = Math.abs(step);
+  animateViewPosition(group, Math.round(base + step), behavior);
 }
 function promoteView(group, index, focus = false) {
-  index = Math.max(0, Math.min(group.views.length - 1, index));
-  markPrimary(group, index);
+  clearTimeout(group.settleTimer);
   centerView(group, index);
+  index = wrapView(index, group.views.length);
+  markPrimary(group, index);
   if (focus) group.cards[index].focus({ preventScroll: true });
   selectProduct(group.views[index]).catch(handleViewerError);
+}
+function settleView(group) {
+  const target = Math.round(group.position), index = wrapView(target, group.views.length);
+  animateViewPosition(group, target);
+  if (index !== group.active) {
+    markPrimary(group, index);
+    selectProduct(group.views[index]).catch(handleViewerError);
+  }
 }
 function buildCaptureStack(group) {
   const section = document.createElement("section"),
     heading = document.createElement("h3"),
-    choices = document.createElement("div"),
+    choices = document.createElement("select"),
     viewport = document.createElement("div"),
     controls = document.createElement("div"),
     previous = document.createElement("button"),
@@ -1403,9 +1424,10 @@ function buildCaptureStack(group) {
   section.className = "tap-stack";
   section.setAttribute("aria-label", group.name);
   heading.textContent = group.name;
-  choices.className = "view-choices";
-  choices.setAttribute("role", "group");
-  choices.setAttribute("aria-label", `Available views of ${group.name}`);
+  choices.className = "view-list";
+  choices.size = Math.min(3, Math.max(2, group.views.length));
+  choices.setAttribute("aria-label", `Views of ${group.name}`);
+  choices.onchange = () => promoteView(group, Number(choices.value));
   viewport.className = "view-carousel";
   viewport.setAttribute("aria-label", `${group.name} views`);
   viewport.setAttribute("role", "group");
@@ -1418,16 +1440,12 @@ function buildCaptureStack(group) {
   next.setAttribute("aria-label", `Next view of ${group.name}`);
   previous.onclick = () => promoteView(group, group.active - 1);
   next.onclick = () => promoteView(group, group.active + 1);
-  Object.assign(group, { viewport, previous, next, label, cards: [], choices: [] });
+  Object.assign(group, { viewport, previous, next, label, cards: [], viewList: choices, position: group.active, target: group.active });
   group.views.forEach((product, index) => {
-    const choice = document.createElement("button");
-    choice.type = "button";
-    choice.className = "view-choice";
+    const choice = document.createElement("option");
+    choice.value = String(index);
     choice.textContent = product.view_name || "Default";
-    choice.setAttribute("aria-label", `Show ${product.view_name || "Default"} for ${group.name}`);
-    choice.onclick = () => promoteView(group, index);
     choices.append(choice);
-    group.choices.push(choice);
     const button = document.createElement("button"),
       canvas = document.createElement("canvas"),
       status = document.createElement("span"),
@@ -1445,6 +1463,7 @@ function buildCaptureStack(group) {
     details.textContent = `${product.shape.join(" × ")} · ${product.dtype}`;
     button.append(canvas, status, title, details);
     button.onclick = () => {
+      if (group.suppressClick) { group.suppressClick = false; return; }
       if (status.classList.contains("error")) drawOverview(product, canvas).catch(() => {});
       promoteView(group, index);
     };
@@ -1457,30 +1476,48 @@ function buildCaptureStack(group) {
     event.preventDefault();
     promoteView(group, index, true);
   });
-  // Native vertical scrolling supports wheels and touch; horizontal gestures
-  // continue to scroll the pipeline. Snap settles before updating the inspector.
-  let settleTimer;
-  viewport.addEventListener("scroll", () => {
+  viewport.addEventListener("wheel", event => {
+    if (group.views.length < 2 || Math.abs(event.deltaX) > Math.abs(event.deltaY)) return;
+    event.preventDefault();
+    cancelAnimationFrame(group.animation);
+    clearTimeout(group.settleTimer);
+    const pixels = event.deltaY * (event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? 240 : 1);
+    group.position += Math.max(-1, Math.min(1, pixels / 180));
+    group.target = group.position;
     updateViewDepth(group);
-    clearTimeout(settleTimer);
-    settleTimer = setTimeout(() => {
-      if (!viewport.isConnected) return;
-      const center = viewport.scrollTop + viewport.clientHeight / 2;
-      let nearest = 0;
-      group.cards.forEach((card, index) => {
-        const distance = Math.abs(card.offsetTop + card.offsetHeight / 2 - center),
-          best = group.cards[nearest];
-        if (distance < Math.abs(best.offsetTop + best.offsetHeight / 2 - center)) nearest = index;
-      });
-      if (nearest !== group.active) {
-        markPrimary(group, nearest);
-        selectProduct(group.views[nearest]).catch(handleViewerError);
-      }
-    }, 80);
-  }, { passive: true });
-  controls.append(previous, label, next);
+    group.settleTimer = setTimeout(() => settleView(group), 110);
+  }, { passive: false });
+  viewport.addEventListener("pointerdown", event => {
+    if (group.views.length < 2 || event.button !== 0) return;
+    cancelAnimationFrame(group.animation);
+    clearTimeout(group.settleTimer);
+    group.drag = { id: event.pointerId, y: event.clientY, start: group.position };
+    group.suppressClick = false;
+  });
+  viewport.addEventListener("pointermove", event => {
+    if (!group.drag || group.drag.id !== event.pointerId) return;
+    const delta = group.drag.y - event.clientY;
+    if (Math.abs(delta) > 6) {
+      group.suppressClick = true;
+      viewport.setPointerCapture(event.pointerId);
+    }
+    if (!group.suppressClick) return;
+    group.position = group.drag.start + delta / 180;
+    group.target = group.position;
+    updateViewDepth(group);
+  });
+  const release = event => {
+    if (!group.drag || group.drag.id !== event.pointerId) return;
+    group.drag = null;
+    if (viewport.hasPointerCapture(event.pointerId)) viewport.releasePointerCapture(event.pointerId);
+    if (group.suppressClick) settleView(group);
+  };
+  viewport.addEventListener("pointerup", release);
+  viewport.addEventListener("pointercancel", release);
+  label.className = "view-announcement";
+  controls.append(previous, choices, next, label);
   controls.hidden = group.views.length === 1;
-  section.append(heading, choices, viewport, controls);
+  section.append(heading, viewport, controls);
   markPrimary(group, group.active);
   return section;
 }
