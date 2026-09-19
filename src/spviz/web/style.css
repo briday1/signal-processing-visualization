@@ -512,3 +512,16 @@ dd {
 }
 
 .pipeline .view-carousel .product canvas { width: 100%; height: auto; aspect-ratio: 4 / 3; }
+
+.view-caption {
+  min-height: 42px;
+  padding: 2px 0 8px;
+  text-align: center;
+}
+.view-caption strong { display: block; font-size: 13px; }
+.view-caption span {
+  display: block;
+  margin-top: 3px;
+  font: 11px ui-monospace, monospace;
+  color: var(--muted);
+}
