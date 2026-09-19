@@ -59,7 +59,7 @@ def generate(output: Path) -> Path:
             axes=["receiver", "Doppler", "range"],
             upstream=raw,
             operation="window + 2D FFT",
-            views=views,
+            views={**views, "Amplitude": {"representation": "magnitude", "scale": "log"}},
             overview_aspect="fit",
         )
     return output

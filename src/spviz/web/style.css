@@ -425,6 +425,10 @@ dd {
   background: radial-gradient(ellipse at center, var(--bg) 58%, transparent 78%);
   opacity: var(--view-focus, 0);
 }
+.view-carousel .product:not(.primary) strong,
+.view-carousel .product:not(.primary) span:not(.product-status) {
+  visibility: hidden;
+}
 .view-carousel .product:focus-visible {
   outline: 2px solid #6177ff;
   outline-offset: -2px;
