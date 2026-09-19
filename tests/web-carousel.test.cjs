@@ -21,7 +21,9 @@ class Element {
   }
   setAttribute(name, value) { this.attributes[name] = value; }
   addEventListener(name, callback) { this.events[name] = callback; }
-  scrollTo({ top }) { this.scrollTop = top; this.events.scroll?.(); }
+  setPointerCapture(id) { this.capture = id; }
+  hasPointerCapture(id) { return this.capture === id; }
+  releasePointerCapture() { this.capture = undefined; }
   focus() { this.focused = true; }
 }
 let nextTimer = 0;
@@ -29,6 +31,7 @@ const timers = new Map(), selections = [];
 const context = vm.createContext({
   document: { createElement: tag => new Element(tag) },
   matchMedia: () => ({ matches: true }),
+  cancelAnimationFrame: () => {},
   setTimeout: callback => { timers.set(++nextTimer, callback); return nextTimer; },
   clearTimeout: id => timers.delete(id),
   selectProduct: product => { selections.push(product.id); return Promise.resolve(); },
@@ -52,83 +55,64 @@ context.centerView(groups[0], groups[0].active, 'instant');
 const flush = () => { const pending = [...timers.values()]; timers.clear(); pending.forEach(callback => callback()); };
 flush();
 assert.equal(selections.length, 0, 'initial centering must not steal inspector focus');
-assert.equal(groups[0].viewport.scrollTop, 252);
-assert.equal(groups[0].cards[1].attributes['aria-current'], 'true');
-assert.equal(groups[1].active, 0);
+
+assert.equal(groups[0].active, 1);
+assert.equal(groups[0].viewList.value, '1');
+assert.deepEqual(Array.from(groups[0].viewList.children, option => option.textContent), ['Amplitude', 'Phase', 'Power']);
+assert.equal(groups[0].viewList.parentElement, groups[0].previous.parentElement, 'list belongs beside the arrows');
 assert.equal(groups[1].previous.disabled, true);
 assert.equal(groups[1].next.disabled, true);
-groups[0].next.onclick();
-flush();
+for (let i = 0; i < 7; i++) groups[0].next.onclick();
 assert.equal(groups[0].active, 2);
-assert.equal(selections.at(-1), 'iq--view-3');
-assert.equal(groups[0].next.disabled, true);
-assert.equal(groups[1].active, 0, 'other tap primaries remain unchanged');
-// Native wheel/touch scrolling settles on the nearest card and selects it.
-groups[0].viewport.scrollTop = 0;
-groups[0].viewport.events.scroll();
-flush();
+assert.equal(groups[0].position, 8, 'rotation continues past the last view');
+assert.equal(groups[0].next.disabled, false);
+for (let i = 0; i < 9; i++) groups[0].previous.onclick();
+assert.equal(groups[0].active, 2);
+assert.equal(groups[0].position, -1, 'reverse rotation passes the first view');
+assert.equal(groups[0].previous.disabled, false);
+assert.equal(groups[1].active, 0, 'other taps remain independent');
+groups[0].viewList.value = '0';
+groups[0].viewList.onchange();
 assert.equal(groups[0].active, 0);
 assert.equal(selections.at(-1), 'iq');
-assert.equal(groups[0].previous.disabled, true);
 let prevented = false;
-groups[0].viewport.events.keydown({ key: 'End', preventDefault: () => { prevented = true; } });
-flush();
+groups[0].viewport.events.keydown({key:'ArrowUp', preventDefault: () => { prevented = true; }});
 assert.equal(prevented, true);
 assert.equal(groups[0].active, 2);
 assert.equal(groups[0].cards[2].focused, true);
-groups[0].cards[1].onclick();
-flush();
-assert.equal(groups[0].active, 1);
-assert.equal(groups[0].cards.filter(card => card.classes.has('primary')).length, 1);
-assert.equal(groups[0].label.textContent, 'Phase · 2/3');
-console.log('Carousel grouping, defaults, native scrolling, buttons, clicks, keyboard, and independent taps passed.');
-
-// Depth responds during a gesture, before selection settles.
 const scale = card => Number(card.style['--view-scale']);
-assert.equal(scale(groups[0].cards[1]), 1);
-assert.ok(scale(groups[0].cards[0]) < 0.8);
-const selectedBeforeScroll = selections.length;
-groups[0].viewport.scrollTop = 126;
-groups[0].viewport.events.scroll();
-assert.equal(selections.length, selectedBeforeScroll);
-assert.equal(scale(groups[0].cards[0]), scale(groups[0].cards[1]));
-assert.ok(scale(groups[0].cards[0]) > 0.25 && scale(groups[0].cards[0]) < 1);
-const halfwayScale = scale(groups[0].cards[0]);
-groups[0].viewport.scrollTop = 125;
-groups[0].viewport.events.scroll();
-assert.ok(scale(groups[0].cards[0]) > halfwayScale);
-assert.ok(scale(groups[0].cards[0]) - halfwayScale < 0.01);
-
-groups[0].viewport.scrollTop = 0;
-groups[0].viewport.events.scroll();
-assert.equal(scale(groups[0].cards[0]), 1);
-assert.equal(scale(groups[0].cards[2]), 0.25);
-assert.equal(scale(groups[1].cards[0]), 1);
-console.log('Continuous depth scaling, smooth midpoint, foreground order, and compact layout passed.');
-
-// Transformed card rectangles never overlap, even between snap positions.
-for (let scroll = 0; scroll <= 504; scroll += 3) {
-  groups[0].viewport.scrollTop = scroll;
-  context.updateViewDepth(groups[0]);
-  const bounds = groups[0].cards.map(card => {
-    const center = card.offsetTop + card.offsetHeight / 2 - scroll + parseFloat(card.style['--view-shift']);
-    const half = card.offsetHeight * scale(card) / 2;
-    return [center - half, center + half];
-  });
-  for (let i = 1; i < bounds.length; i++)
-    assert.ok(bounds[i][0] - bounds[i-1][1] >= 11.999, 'every face needs a visible gap throughout the gesture');
-}
-context.centerView(groups[0], 1, 'instant');
+assert.equal(scale(groups[0].cards[2]), 1);
 assert.equal(scale(groups[0].cards[0]), 0.25);
-assert.equal(scale(groups[0].cards[1]), 1);
-assert.equal(scale(groups[0].cards[2]), 0.25);
-console.log('Quarter-size neighboring views and non-overlapping swipe geometry passed.');
-
-assert.deepEqual(Array.from(groups[0].choices, choice => choice.textContent), ['Amplitude', 'Phase', 'Power']);
-groups[0].choices[2].onclick();
+assert.equal(scale(groups[0].cards[1]), 0.25);
+// A wheel gesture travels continuously, then selects only at its snap point.
+const before = selections.length;
+groups[0].viewport.events.wheel({deltaX:0, deltaY:120, deltaMode:0, preventDefault() {}});
+assert.equal(selections.length, before);
+assert.ok(scale(groups[0].cards[0]) > 0.25 && scale(groups[0].cards[0]) < 1);
 flush();
-assert.equal(groups[0].active, 2);
-assert.equal(groups[0].choices[2].attributes['aria-pressed'], 'true');
-assert.equal(groups[0].choices[1].attributes['aria-pressed'], 'false');
-assert.equal(selections.at(-1), 'iq--view-3');
-console.log('Visible view choices select the matching plot and track the active view.');
+assert.equal(groups[0].active, 0);
+assert.equal(groups[0].viewList.value, '0');
+// Dragging and pointer cancellation leave the orbit snapped and usable.
+groups[0].viewport.events.pointerdown({button:0,pointerId:3,clientY:200});
+groups[0].viewport.events.pointermove({pointerId:3,clientY:20});
+groups[0].viewport.events.pointerup({pointerId:3});
+assert.equal(groups[0].active, 1);
+assert.equal(groups[0].viewport.capture, undefined);
+// Two views also loop in either direction, with the off view visibly recessed.
+const pair = context.groupCaptures(products.slice(0,2))[0];
+context.buildCaptureStack(pair);
+context.centerView(pair, pair.active, 'instant');
+assert.equal(scale(pair.cards[0]), 0.25);
+assert.ok(Math.abs(parseFloat(pair.cards[0].style['--view-shift'])) >= 160);
+pair.next.onclick();
+assert.equal(pair.active, 0);
+pair.next.onclick();
+assert.equal(pair.active, 1);
+pair.previous.onclick();
+assert.equal(pair.active, 0);
+assert.equal(pair.previous.disabled, false);
+console.log('Circular wheel, drag, keyboard, list selection, depth miniatures, two-view and single-view behavior passed.');
+
+groups[0].viewport.events.wheel({deltaX:0,deltaY:35,deltaMode:0,preventDefault(){}});
+groups[0].next.onclick();
+assert.ok(Number.isInteger(groups[0].position), 'clicking during a wheel gesture must still center a whole view');
