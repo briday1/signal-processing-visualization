@@ -73,3 +73,87 @@ class PreviewTests(unittest.TestCase):
                     sum(chunk.stat().st_size for chunk in chunks),
                     meta["static_export"]["payload_bytes"],
                 )
+
+    def test_preview_color_transfer_matches_browser(self):
+        import shutil
+        import subprocess
+
+        from spviz.previews import display_rgba
+
+        if not shutil.which("node"):
+            self.skipTest("Node.js required for cross-renderer parity")
+        fixtures = [
+            {
+                "values": [0, 0.01, 0.1, 0.5, 1, None],
+                "low": 0,
+                "high": 1,
+                "phase": False,
+                "log": False,
+                "binary": False,
+            },
+            {
+                "values": [-np.pi, -2, -0.5, 0, 0.5, 2, np.pi],
+                "low": -np.pi,
+                "high": np.pi,
+                "phase": True,
+                "log": False,
+                "binary": False,
+            },
+            {
+                "values": [-2, -0.5, 0, 0.5, 3, 9],
+                "low": -2,
+                "high": 9,
+                "phase": False,
+                "log": False,
+                "binary": False,
+            },
+            {
+                "values": [0, 0.001, 0.01, 1, 5, 10],
+                "low": 0.001,
+                "high": 10,
+                "phase": False,
+                "log": True,
+                "binary": False,
+            },
+            {
+                "values": [0, 1],
+                "low": 0,
+                "high": 1,
+                "phase": False,
+                "log": False,
+                "binary": True,
+            },
+        ]
+        result = subprocess.run(
+            ["node", str(Path(__file__).with_name("web-preview-colors.cjs"))],
+            input=json.dumps(fixtures),
+            text=True,
+            capture_output=True,
+            check=True,
+        )
+        for fixture, expected in zip(fixtures, json.loads(result.stdout)):
+            values = np.array(fixture.pop("values"), dtype=np.float32)
+            rgba = display_rgba(values, **fixture).reshape(-1)
+            np.testing.assert_allclose(rgba, expected, atol=1, rtol=0)
+
+    def test_static_preview_uses_exported_first_slice_when_budget_caps_density(self):
+        from spviz.previews import preview_png
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            values = np.arange(3 * 101 * 137, dtype=np.float32).reshape(3, 101, 137)
+            with spviz.Session(root / "run") as run:
+                product = run.capture("cube", values, axes=["a", "b", "c"])
+            with patch("spviz.static.preview_png", wraps=preview_png) as renderer:
+                site = export_static(
+                    root / "run", root / "site", max_volume_bytes=20000
+                )
+            selected = renderer.call_args.kwargs["selected"]
+            meta = json.loads(
+                (site / "data/volumes" / f"{product}--0-1-2.json").read_text()
+            )
+            self.assertTrue(meta["static_export"]["plane_capped"])
+            expected = values[0][np.ix_(meta["row_indices"], meta["column_indices"])]
+            np.testing.assert_array_equal(selected, expected)
+            sampled_meta = renderer.call_args.kwargs["sampled"][0]
+            self.assertEqual(sampled_meta["depth_indices"], [0, 1, 2])

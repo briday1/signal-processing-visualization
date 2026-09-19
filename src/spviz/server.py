@@ -513,13 +513,14 @@ class RunStore:
 
     def preview(self, product_id: str) -> tuple[str, bytes]:
         """Reuse a PNG across requests/restarts; invalidate on source/display changes."""
-        from .previews import preview_png
+        from .previews import PREVIEW_VERSION, preview_png
 
         with self._lock:
             product = self.products[product_id]
             source = self._run_file(product["file"], product=product_id).stat()
             fingerprint = json.dumps(
-                [product, source.st_size, source.st_mtime_ns, 3], sort_keys=True
+                [product, source.st_size, source.st_mtime_ns, PREVIEW_VERSION],
+                sort_keys=True,
             )
             key = hashlib.sha256(fingerprint.encode()).hexdigest()
             directory = self.path / ".spviz-previews"
