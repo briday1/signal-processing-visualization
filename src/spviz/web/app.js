@@ -1381,6 +1381,9 @@ function markPrimary(group, index) {
     card.classList.toggle("primary", i === group.active);
     card.setAttribute("aria-current", String(i === group.active));
   });
+  const product = group.views[group.active];
+  group.captionTitle.textContent = product.view_name || "Default view";
+  group.captionDetails.textContent = `${product.shape.join(" × ")} · ${product.dtype}`;
   group.viewList.value = String(group.active);
   group.previous.disabled = group.next.disabled = group.views.length < 2;
   group.label.textContent = `${group.views[group.active].view_name || "Default"} · ${group.active + 1}/${group.views.length}`;
@@ -1434,6 +1437,9 @@ function buildCaptureStack(group) {
     choices = document.createElement("select"),
     viewport = document.createElement("div"),
     controls = document.createElement("div"),
+    caption = document.createElement("div"),
+    captionTitle = document.createElement("strong"),
+    captionDetails = document.createElement("span"),
     previous = document.createElement("button"),
     next = document.createElement("button"),
     label = document.createElement("span");
@@ -1448,6 +1454,8 @@ function buildCaptureStack(group) {
   viewport.setAttribute("aria-label", `${group.name} views`);
   viewport.setAttribute("role", "group");
   controls.className = "view-controls";
+  caption.className = "view-caption";
+  caption.append(captionTitle, captionDetails);
   label.setAttribute("aria-live", "polite");
   previous.type = next.type = "button";
   previous.textContent = "↑";
@@ -1456,7 +1464,7 @@ function buildCaptureStack(group) {
   next.setAttribute("aria-label", `Next view of ${group.name}`);
   previous.onclick = () => promoteView(group, group.active - 1);
   next.onclick = () => promoteView(group, group.active + 1);
-  Object.assign(group, { viewport, previous, next, label, cards: [], viewList: choices, position: group.active, target: group.active });
+  Object.assign(group, { viewport, previous, next, label, captionTitle, captionDetails, cards: [], viewList: choices, position: group.active, target: group.active });
   group.views.forEach((product, index) => {
     const choice = document.createElement("option");
     choice.value = String(index);
@@ -1464,9 +1472,7 @@ function buildCaptureStack(group) {
     choices.append(choice);
     const button = document.createElement("button"),
       canvas = document.createElement("canvas"),
-      status = document.createElement("span"),
-      title = document.createElement("strong"),
-      details = document.createElement("span");
+      status = document.createElement("span");
     button.className = "product";
     button.type = "button";
     button.dataset.productId = product.id;
@@ -1475,9 +1481,7 @@ function buildCaptureStack(group) {
     canvas.setAttribute("aria-hidden", "true");
     status.className = "product-status";
     status.textContent = "Loading preview…";
-    title.textContent = product.view_name || "Default view";
-    details.textContent = `${product.shape.join(" × ")} · ${product.dtype}`;
-    button.append(canvas, status, title, details);
+    button.append(canvas, status);
     button.onclick = () => {
       if (group.suppressClick) { group.suppressClick = false; return; }
       if (status.classList.contains("error")) drawOverview(product, canvas).catch(() => {});
@@ -1533,7 +1537,7 @@ function buildCaptureStack(group) {
   label.className = "view-announcement";
   controls.append(previous, choices, next, label);
   controls.hidden = group.views.length === 1;
-  section.append(heading, viewport, controls);
+  section.append(heading, viewport, caption, controls);
   markPrimary(group, group.active);
   return section;
 }
