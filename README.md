@@ -246,7 +246,7 @@ current page session and close on reload. Each pane uses an isolated instance of
 the regular viewer; the local server permits embedding only from the same origin.
 
 
-Mini views occupy the same compact pipeline column as a single view. Scroll or use
+Mini views occupy one pipeline column: the focused plot is full size, with separate quarter-size neighbors above and below. Scroll or use
 Up/Down to snap between them; the API's `primary_view` remains the initial face.
 Default previews are saved as 640 × 480 transparent PNGs, sampled at up to 512
 values per axis, with no volume download needed to display them. Local serving

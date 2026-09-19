@@ -371,8 +371,7 @@ dd {
   }
 }
 
-/* Keep native vertical scrolling, projected onto the overview depth axis.
-   Counter-rotate cards so the plots and labels stay upright. */
+/* Native vertical snapping with separated, continuously scaled miniatures. */
 .tap-stack {
   flex: 0 0 230px;
   min-width: 0;
@@ -387,13 +386,12 @@ dd {
 }
 .view-carousel {
   position: relative;
-  height: 290px;
+  height: 408px;
   margin-block: 4px;
   width: 100%;
-  perspective: 700px;
   overflow-y: auto;
   overflow-x: hidden;
-  padding-block: 25px;
+  padding-block: 84px;
   scroll-snap-type: y mandatory;
   overscroll-behavior-y: contain;
   scrollbar-width: none;
@@ -408,26 +406,13 @@ dd {
   scroll-snap-align: center;
   scroll-snap-stop: always;
   z-index: 1;
-  opacity: var(--view-opacity, 0.3);
-  transform: translateY(var(--view-shift, 0px)) rotateX(var(--view-tilt, 0deg)) scale(var(--view-scale, 0.68));
+  opacity: var(--view-opacity, 0.65);
+  transform: translateY(var(--view-shift, 0px)) scale(var(--view-scale, 0.25));
   /* Scroll position supplies continuous interpolation, without a delayed snap. */
 }
-/* Overlap the neighbors, retaining end padding for exact scroll centering. */
+/* Normal, non-overlapping snap targets; scaled visual spacing is computed above. */
 .view-carousel .product:not(:last-child) {
-  margin-bottom: -168px;
-}
-.view-carousel .product::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  z-index: -1;
-  pointer-events: none;
-  background: radial-gradient(ellipse at center, var(--bg) 58%, transparent 78%);
-  opacity: var(--view-focus, 0);
-}
-.view-carousel .product:not(.primary) strong,
-.view-carousel .product:not(.primary) span:not(.product-status) {
-  visibility: hidden;
+  margin-bottom: 12px;
 }
 .view-carousel .product:focus-visible {
   outline: 2px solid #6177ff;
@@ -466,8 +451,8 @@ dd {
   .view-carousel .product { width: 170px; }
 }
 
-/* Room for diagonal previews at the two ends of the horizontal pipeline. */
-.pipeline { padding-inline: 55px; }
+/* Keep a little breathing room at the pipeline ends. */
+.pipeline { padding-inline: 16px; }
 
 .comparison {
   border-top: 1px solid var(--line);
