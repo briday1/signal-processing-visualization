@@ -1174,9 +1174,25 @@ function bitmapFor(slice, min, max, log, scope) {
   lruSet(state.bitmaps, key, canvas, 192, MAX_BITMAP_CACHE_BYTES);
   return canvas;
 }
+function overviewAppearance() {
+  return `${state.colorMap}:${state.overviewAspect}:${state.theme}`;
+}
 async function drawOverview(product, canvas) {
+  const appearance = overviewAppearance(),
+    staging = document.createElement("canvas");
+  staging.width = 640;
+  staging.height = 480;
   const version = (canvas._previewVersion || 0) + 1;
   canvas._previewVersion = version;
+  const current = () => canvas._previewVersion === version && overviewAppearance() === appearance;
+  const publish = () => {
+    if (!current()) return;
+    // Keep the old complete image until its replacement is ready. Resizing and
+    // copying happen in one synchronous task, so no intermediate frame paints.
+    canvas.width = staging.width;
+    canvas.height = staging.height;
+    canvas.getContext("2d").drawImage(staging, 0, 0);
+  };
   const status = canvas.parentElement.querySelector(".product-status");
   status.hidden = false;
   status.textContent = "Loading preview…";
@@ -1188,10 +1204,9 @@ async function drawOverview(product, canvas) {
         ? staticAssetUrl(`${staticBase}/previews/${encodeURIComponent(product.id)}.png`)
         : `/api/product/${encodeURIComponent(product.id)}/preview.png`;
       await image.decode();
-      if (canvas._previewVersion !== version) return;
-      canvas.width = 640;
-      canvas.height = 480;
-      canvas.getContext("2d").drawImage(image, 0, 0, 640, 480);
+      if (!current()) return;
+      staging.getContext("2d").drawImage(image, 0, 0, 640, 480);
+      publish();
       status.hidden = true;
       status.textContent = "";
       return;
@@ -1211,11 +1226,11 @@ async function drawOverview(product, canvas) {
           (position + 1) * planeSize,
         ),
       })),
-      { context, width, height } = canvasSize(canvas),
+      context = staging.getContext("2d"), width = staging.width, height = staging.height,
       log = product.representation !== "phase" && product.scale === "log",
       [min, max] = scaleBounds(product, log);
     slices[0] = await getSlice(product, axes, 0, 96);
-    if (canvas._previewVersion !== version) return;
+    if (!current()) return;
     if (axes.length === 1) {
       drawTrace(
         context,
@@ -1262,9 +1277,11 @@ async function drawOverview(product, canvas) {
         context.restore();
       }
     }
+    publish();
     status.hidden = true;
     status.textContent = "";
   } catch (error) {
+    if (!current()) return;
     status.hidden = false;
     status.textContent = `Preview failed · ${error.message} · click to retry`;
     status.className = "product-status error";
@@ -1346,14 +1363,13 @@ function updateViewDepth(group) {
       // Three faces occupy the visible arc; additional choices pass behind it.
       angle = distance * (count === 2 ? Math.PI : 2 * Math.PI / 3),
       depth = (1 - Math.cos(angle)) / 2,
-      y = count === 2 ? -140 * depth + 50 * Math.sin(angle) : 150 * Math.sin(angle),
-      x = count === 2 ? 16 * Math.sin(angle) : 24 * depth + y * 0.06,
+      y = count === 2 ? -80 * depth + 30 * Math.sin(angle) : 85 * Math.sin(angle),
       rear = count <= 2 ? 1 : Math.max(0, Math.min(1, (1.5 - Math.abs(distance)) * 4));
-    card.style.setProperty("--view-x", `${x}px`);
+    card.style.setProperty("--view-x", "0px");
     card.style.setProperty("--view-shift", `${y}px`);
     card.style.setProperty("--view-scale", String(0.25 + 0.75 * focus));
     card.style.setProperty("--view-opacity", String(rear));
-    card.style.setProperty("--view-tilt", `${-8 * Math.sin(angle)}deg`);
+    card.style.setProperty("--view-tilt", "0deg");
     card.style.zIndex = String(1 + Math.round(focus * 100));
     card.style.visibility = rear === 0 ? "hidden" : "visible";
     card.style.pointerEvents = rear < 0.2 ? "none" : "auto";
@@ -1525,7 +1541,11 @@ let overviewObserver;
 const overviewQueue = [];
 let overviewWorkers = 0;
 function queueOverview(product, canvas) {
-  if (canvas.dataset.queued) { canvas.dataset.redraw = "true"; return; }
+  if (canvas.dataset.queued) {
+    canvas._previewVersion = (canvas._previewVersion || 0) + 1;
+    canvas.dataset.redraw = "true";
+    return;
+  }
   canvas.dataset.queued = "true";
   overviewQueue.push({ product, canvas });
   drainOverviews();
@@ -1557,7 +1577,10 @@ function redrawOverviews() {
       if (product) queueOverview(product, canvas);
     }
   }, { rootMargin: "200px" });
-  document.querySelectorAll(".product canvas").forEach(canvas => overviewObserver.observe(canvas));
+  document.querySelectorAll(".product canvas").forEach(canvas => {
+    canvas._previewVersion = (canvas._previewVersion || 0) + 1;
+    overviewObserver.observe(canvas);
+  });
 }
 
 async function build() {

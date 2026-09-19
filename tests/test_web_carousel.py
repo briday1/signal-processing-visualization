@@ -31,3 +31,12 @@ class CarouselTests(unittest.TestCase):
             capture_output=True,
             text=True,
         )
+
+    @unittest.skipUnless(shutil.which("node"), "Node.js is needed for viewer tests")
+    def test_thumbnail_races(self):
+        subprocess.run(
+            ["node", str(Path(__file__).with_name("web-thumbnail-race.test.cjs"))],
+            check=True,
+            capture_output=True,
+            text=True,
+        )

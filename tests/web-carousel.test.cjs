@@ -103,7 +103,7 @@ const pair = context.groupCaptures(products.slice(0,2))[0];
 context.buildCaptureStack(pair);
 context.centerView(pair, pair.active, 'instant');
 assert.equal(scale(pair.cards[0]), 0.25);
-assert.ok(Math.abs(parseFloat(pair.cards[0].style['--view-shift'])) >= 130);
+assert.ok(Math.abs(parseFloat(pair.cards[0].style['--view-shift'])) >= 70);
 pair.next.onclick();
 assert.equal(pair.active, 0);
 pair.next.onclick();
@@ -116,3 +116,14 @@ console.log('Circular wheel, drag, keyboard, list selection, depth miniatures, t
 groups[0].viewport.events.wheel({deltaX:0,deltaY:35,deltaMode:0,preventDefault(){}});
 groups[0].next.onclick();
 assert.ok(Number.isInteger(groups[0].position), 'clicking during a wheel gesture must still center a whole view');
+
+for (let position = -3; position <= 3; position += .125) {
+  groups[0].position = position;
+  context.updateViewDepth(groups[0]);
+  for (const card of groups[0].cards) {
+    assert.equal(card.style['--view-x'], '0px');
+    assert.equal(card.style['--view-tilt'], '0deg');
+    assert.ok(Math.abs(parseFloat(card.style['--view-shift'])) <= 85.001);
+  }
+}
+console.log('Vertical orbit remains centered within its compact radius.');
