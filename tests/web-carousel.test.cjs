@@ -6,7 +6,7 @@ const source = readFileSync(new URL('../src/spviz/web/app.js', `file://${__filen
 class Element {
   constructor(tag) {
     this.tag = tag; this.children = []; this.dataset = {}; this.attributes = {};
-    this.events = {}; this.scrollTop = 0; this.clientHeight = 290; this.offsetHeight = 240;
+    this.events = {}; this.scrollTop = 0; this.clientHeight = 408; this.offsetHeight = 240;
     this.isConnected = true;
     this.style = { setProperty(name, value) { this[name] = value; } };
     this.classes = new Set();
@@ -15,7 +15,7 @@ class Element {
   append(...children) {
     for (const child of children) {
       child.parentElement = this;
-      child.offsetTop = 25 + this.children.length * 72;
+      child.offsetTop = 84 + this.children.length * 252;
       this.children.push(child);
     }
   }
@@ -52,7 +52,7 @@ context.centerView(groups[0], groups[0].active, 'instant');
 const flush = () => { const pending = [...timers.values()]; timers.clear(); pending.forEach(callback => callback()); };
 flush();
 assert.equal(selections.length, 0, 'initial centering must not steal inspector focus');
-assert.equal(groups[0].viewport.scrollTop, 72);
+assert.equal(groups[0].viewport.scrollTop, 252);
 assert.equal(groups[0].cards[1].attributes['aria-current'], 'true');
 assert.equal(groups[1].active, 0);
 assert.equal(groups[1].previous.disabled, true);
@@ -88,20 +88,38 @@ const scale = card => Number(card.style['--view-scale']);
 assert.equal(scale(groups[0].cards[1]), 1);
 assert.ok(scale(groups[0].cards[0]) < 0.8);
 const selectedBeforeScroll = selections.length;
-groups[0].viewport.scrollTop = 36;
+groups[0].viewport.scrollTop = 126;
 groups[0].viewport.events.scroll();
 assert.equal(selections.length, selectedBeforeScroll);
 assert.equal(scale(groups[0].cards[0]), scale(groups[0].cards[1]));
-assert.ok(scale(groups[0].cards[0]) > 0.8 && scale(groups[0].cards[0]) < 1);
+assert.ok(scale(groups[0].cards[0]) > 0.25 && scale(groups[0].cards[0]) < 1);
 const halfwayScale = scale(groups[0].cards[0]);
-groups[0].viewport.scrollTop = 35;
+groups[0].viewport.scrollTop = 125;
 groups[0].viewport.events.scroll();
 assert.ok(scale(groups[0].cards[0]) > halfwayScale);
 assert.ok(scale(groups[0].cards[0]) - halfwayScale < 0.01);
-assert.ok(Number(groups[0].cards[0].style.zIndex) >= Number(groups[0].cards[1].style.zIndex));
+
 groups[0].viewport.scrollTop = 0;
 groups[0].viewport.events.scroll();
 assert.equal(scale(groups[0].cards[0]), 1);
-assert.equal(scale(groups[0].cards[2]), 0.68);
+assert.equal(scale(groups[0].cards[2]), 0.25);
 assert.equal(scale(groups[1].cards[0]), 1);
 console.log('Continuous depth scaling, smooth midpoint, foreground order, and compact layout passed.');
+
+// Transformed card rectangles never overlap, even between snap positions.
+for (let scroll = 0; scroll <= 504; scroll += 3) {
+  groups[0].viewport.scrollTop = scroll;
+  context.updateViewDepth(groups[0]);
+  const bounds = groups[0].cards.map(card => {
+    const center = card.offsetTop + card.offsetHeight / 2 - scroll + parseFloat(card.style['--view-shift']);
+    const half = card.offsetHeight * scale(card) / 2;
+    return [center - half, center + half];
+  });
+  for (let i = 1; i < bounds.length; i++)
+    assert.ok(bounds[i][0] - bounds[i-1][1] >= 11.999, 'every face needs a visible gap throughout the gesture');
+}
+context.centerView(groups[0], 1, 'instant');
+assert.equal(scale(groups[0].cards[0]), 0.25);
+assert.equal(scale(groups[0].cards[1]), 1);
+assert.equal(scale(groups[0].cards[2]), 0.25);
+console.log('Quarter-size neighboring views and non-overlapping swipe geometry passed.');

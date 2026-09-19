@@ -1336,24 +1336,35 @@ function groupCaptures(products) {
 }
 function updateViewDepth(group) {
   const center = group.viewport.scrollTop + group.viewport.clientHeight / 2,
+    height = group.cards[0].offsetHeight,
     stride = group.cards.length > 1
       ? Math.max(1, group.cards[1].offsetTop - group.cards[0].offsetTop)
-      : group.cards[0].offsetHeight;
-  for (const card of group.cards) {
-    // Layout coordinates stay stable while the visual transform changes size.
-    const distance = Math.abs(card.offsetTop + card.offsetHeight / 2 - center),
-      t = Math.min(1, distance / (stride * 1.5)),
-      falloff = t * t * (3 - 2 * t),
-      focus = 1 - falloff;
-    const signed = (card.offsetTop + card.offsetHeight / 2 - center) / stride;
-    card.style.setProperty("--view-shift", `${-signed * (stride - 42)}px`);
-    card.style.setProperty("--view-tilt", `${Math.max(-1, Math.min(1, signed)) * -12}deg`);
-    card.style.setProperty("--view-scale", String(0.68 + 0.32 * focus));
-    card.style.setProperty("--view-opacity", String(0.3 + 0.7 * focus));
-    card.style.setProperty("--view-focus", String(focus));
-    card.style.zIndex = String(1 + Math.round(focus * 100));
-  }
+      : height,
+    position = Math.max(0, Math.min(group.cards.length - 1,
+      (center - group.cards[0].offsetTop - height / 2) / stride)),
+    left = Math.floor(position),
+    fraction = position - left,
+    scales = group.cards.map((_, index) => {
+      const t = Math.min(1, Math.abs(index - position));
+      return 0.25 + 0.75 * (1 - t * t * (3 - 2 * t));
+    }),
+    gap = 12,
+    centers = [];
+  // Pack the *scaled* rectangles with a real gap, including during a swipe.
+  // Native layout remains stable so wheel/touch snapping never moves its targets.
+  centers[left] = -fraction * (height * (scales[left] + (scales[left + 1] ?? scales[left])) / 2 + gap);
+  for (let i = left + 1; i < scales.length; i++)
+    centers[i] = centers[i - 1] + height * (scales[i - 1] + scales[i]) / 2 + gap;
+  for (let i = left - 1; i >= 0; i--)
+    centers[i] = centers[i + 1] - height * (scales[i + 1] + scales[i]) / 2 - gap;
+  group.cards.forEach((card, index) => {
+    const naturalCenter = card.offsetTop + height / 2 - center;
+    card.style.setProperty("--view-shift", `${centers[index] - naturalCenter}px`);
+    card.style.setProperty("--view-scale", String(scales[index]));
+    card.style.setProperty("--view-opacity", String(0.65 + 0.35 * (scales[index] - 0.25) / 0.75));
+  });
 }
+
 function markPrimary(group, index) {
   group.active = index;
   group.cards.forEach((card, i) => {
