@@ -371,7 +371,7 @@ dd {
   }
 }
 
-/* A shallowly tilted depth orbit, with no scrolling endpoints. */
+/* Compact vertical depth orbit; rear miniatures may pass behind the focus. */
 .tap-stack {
   flex: 0 0 230px;
   min-width: 0;
@@ -386,7 +386,7 @@ dd {
 }
 .view-carousel {
   position: relative;
-  height: 400px;
+  height: 300px;
   margin-block: 4px;
   width: 100%;
   overflow: hidden;
@@ -511,4 +511,4 @@ dd {
   clip-path: inset(50%);
 }
 
-.view-carousel .product canvas { height: auto; aspect-ratio: 4 / 3; }
+.pipeline .view-carousel .product canvas { width: 100%; height: auto; aspect-ratio: 4 / 3; }
