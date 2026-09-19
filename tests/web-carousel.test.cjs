@@ -123,3 +123,12 @@ assert.equal(scale(groups[0].cards[0]), 0.25);
 assert.equal(scale(groups[0].cards[1]), 1);
 assert.equal(scale(groups[0].cards[2]), 0.25);
 console.log('Quarter-size neighboring views and non-overlapping swipe geometry passed.');
+
+assert.deepEqual(Array.from(groups[0].choices, choice => choice.textContent), ['Amplitude', 'Phase', 'Power']);
+groups[0].choices[2].onclick();
+flush();
+assert.equal(groups[0].active, 2);
+assert.equal(groups[0].choices[2].attributes['aria-pressed'], 'true');
+assert.equal(groups[0].choices[1].attributes['aria-pressed'], 'false');
+assert.equal(selections.at(-1), 'iq--view-3');
+console.log('Visible view choices select the matching plot and track the active view.');

@@ -19,6 +19,12 @@ class StaticExportTests(unittest.TestCase):
             site = export_static(root / "run", root / "site")
 
             self.assertTrue((site / "index.html").is_file())
+            import hashlib
+            index = (site / "index.html").read_text()
+            for name in ("style.css", "range.css", "config.js", "gif.js", "app.js"):
+                revision = hashlib.sha256((site / name).read_bytes()).hexdigest()[:16]
+                self.assertIn(f'"./{name}?v={revision}"', index)
+
             self.assertIn('option value="viridis"', (site / "index.html").read_text())
             self.assertIn('option value="equal"', (site / "index.html").read_text())
             self.assertIn('id="overview-aspect"', (site / "index.html").read_text())
