@@ -13,10 +13,12 @@ from spviz.static import export_static
 try:  # Support both direct execution and package-style test imports.
     from .advanced_gallery import GENERATORS as ADVANCED_GENERATORS
     from .interferometry import generate as generate_interferometry
+    from .large_cube import generate as generate_large_cube
     from .radar import generate as generate_radar
 except ImportError:
     from advanced_gallery import GENERATORS as ADVANCED_GENERATORS
     from interferometry import generate as generate_interferometry
+    from large_cube import generate as generate_large_cube
     from radar import generate as generate_radar
 
 
@@ -1117,6 +1119,11 @@ def generate_ofdm(path: Path) -> Path:
 
 EXAMPLES = [
     (
+        "large-cube",
+        "Large radar cube",
+        "16 × 256 × 1024 complex samples per tap, with amplitude, phase, and real views.",
+    ),
+    (
         "interferometry",
         "Aperture interferometry",
         "Receiver amplitude and phase, baseline visibilities, dirty angular image, and point-spread function.",
@@ -1197,6 +1204,7 @@ EXAMPLES = [
 def build_gallery(output: Path) -> Path:
     runs = output.parent / "runs"
     generators = {
+        "large-cube": generate_large_cube,
         "radar": generate_radar,
         "interferometry": generate_interferometry,
         "audio": generate_audio,
@@ -1217,7 +1225,7 @@ def build_gallery(output: Path) -> Path:
         for slug, title, description in EXAMPLES
     )
     (output / "index.html").write_text(
-        f"""<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>spviz examples</title><style>:root{{color-scheme:dark}}*{{box-sizing:border-box}}body{{margin:0;background:#09101d;color:#e9eef8;font:16px/1.5 system-ui}}main{{max-width:1120px;margin:auto;padding:64px 24px}}h1{{font-size:46px;margin:0}}p{{color:#91a0b8;max-width:700px}}.grid{{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:18px;margin-top:38px}}.card{{min-height:190px;padding:24px;border:1px solid #293752;border-radius:14px;background:#101a2c;color:inherit;text-decoration:none;display:flex;flex-direction:column;transition:.15s}}.card:hover{{transform:translateY(-3px);border-color:#6e83ff}}strong{{font-size:21px}}span{{color:#91a0b8;margin-top:10px}}b{{color:#6e83ff;margin-top:auto}}</style></head><body><main><h1>spviz examples</h1><p>Real deterministic synthetic data flowing through fourteen different signal-processing pipelines. Choose one to inspect every intermediate product.</p><div class="grid">{cards}</div></main></body></html>""",
+        f"""<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>spviz examples</title><style>:root{{color-scheme:dark}}*{{box-sizing:border-box}}body{{margin:0;background:#09101d;color:#e9eef8;font:16px/1.5 system-ui}}main{{max-width:1120px;margin:auto;padding:64px 24px}}h1{{font-size:46px;margin:0}}p{{color:#91a0b8;max-width:700px}}.grid{{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:18px;margin-top:38px}}.card{{min-height:190px;padding:24px;border:1px solid #293752;border-radius:14px;background:#101a2c;color:inherit;text-decoration:none;display:flex;flex-direction:column;transition:.15s}}.card:hover{{transform:translateY(-3px);border-color:#6e83ff}}strong{{font-size:21px}}span{{color:#91a0b8;margin-top:10px}}b{{color:#6e83ff;margin-top:auto}}</style></head><body><main><h1>spviz examples</h1><p>Real deterministic synthetic data flowing through fifteen different signal-processing pipelines. Choose one to inspect every intermediate product.</p><div class="grid">{cards}</div></main></body></html>""",
         encoding="utf-8",
     )
     return output

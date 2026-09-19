@@ -6,3 +6,5 @@ build/
 dist/
 runs/
 .DS_Store
+
+.spviz-previews/

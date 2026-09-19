@@ -387,17 +387,16 @@ dd {
 }
 .view-carousel {
   position: relative;
-  height: 420px;
-  margin-block: 65px;
-  width: calc(100% + 70px);
-  margin-inline: -35px;
-  transform: rotate(10deg);
+  height: 290px;
+  margin-block: 4px;
+  width: 100%;
+  perspective: 700px;
   overflow-y: auto;
   overflow-x: hidden;
-  padding-block: 90px;
+  padding-block: 25px;
   scroll-snap-type: y mandatory;
   overscroll-behavior-y: contain;
-  scrollbar-width: thin;
+  scrollbar-width: none;
   scrollbar-color: var(--line) transparent;
   mask-image: linear-gradient(transparent, black 8%, black 92%, transparent);
 }
@@ -410,12 +409,12 @@ dd {
   scroll-snap-stop: always;
   z-index: 1;
   opacity: var(--view-opacity, 0.3);
-  transform: rotate(-10deg) scale(var(--view-scale, 0.68));
+  transform: translateY(var(--view-shift, 0px)) rotateX(var(--view-tilt, 0deg)) scale(var(--view-scale, 0.68));
   /* Scroll position supplies continuous interpolation, without a delayed snap. */
 }
 /* Overlap the neighbors, retaining end padding for exact scroll centering. */
 .view-carousel .product:not(:last-child) {
-  margin-bottom: -120px;
+  margin-bottom: -168px;
 }
 .view-carousel .product::before {
   content: "";

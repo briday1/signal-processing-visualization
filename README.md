@@ -244,3 +244,25 @@ panes stay independent. Linking is by array index, not physical coordinates.
 Comparison panes work in local runs and static galleries. They are kept for the
 current page session and close on reload. Each pane uses an isolated instance of
 the regular viewer; the local server permits embedding only from the same origin.
+
+
+Mini views occupy the same compact pipeline column as a single view. Scroll or use
+Up/Down to snap between them; the API's `primary_view` remains the initial face.
+Default previews are saved as 640 × 480 transparent PNGs, sampled at up to 512
+values per axis, with no volume download needed to display them. Local serving
+reuses a bounded disk cache in the captured run's `.spviz-previews` directory and
+revalidates PNGs when source files or display settings change. Read-only runs
+still work, but cannot persist newly generated previews. Custom overview palettes
+and aspect overrides use the interactive rendering path.
+
+Static exports include PNGs and small 96-density context volumes. Large volumes
+are stored as individual selectable layers, fetched on demand; small volumes stay
+in a single file. Existing volume budgets still cover the layer data; PNGs, context
+volumes and metadata add a small amount of storage. Thumbnails load near the
+viewport with at most two active jobs. The viewer retains bounded in-memory data
+and bitmap caches, while static assets also use the browser's HTTP cache.
+
+Run `python examples/large_cube.py --output runs/large-cube` for a deterministic
+16 × 256 × 1024 complex radar example (4.2 million samples per tap), with amplitude,
+phase and real views before and after range–Doppler processing. It is also included
+in the gallery.
