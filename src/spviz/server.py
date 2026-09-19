@@ -1,8 +1,11 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import mimetypes
+import os
 import re
+import tempfile
 import threading
 from collections import deque
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -508,6 +511,43 @@ class RunStore:
         metadata["rows"], metadata["columns"] = plane.shape
         return metadata, plane.tobytes(order="C")
 
+    def preview(self, product_id: str) -> tuple[str, bytes]:
+        """Reuse a PNG across requests/restarts; invalidate on source/display changes."""
+        from .previews import preview_png
+
+        with self._lock:
+            product = self.products[product_id]
+            source = self._run_file(product["file"], product=product_id).stat()
+            fingerprint = json.dumps(
+                [product, source.st_size, source.st_mtime_ns, 3], sort_keys=True
+            )
+            key = hashlib.sha256(fingerprint.encode()).hexdigest()
+            directory = self.path / ".spviz-previews"
+            if directory.is_symlink():
+                raise ValueError("Preview cache cannot be a symbolic link")
+            target = directory / f"{key}.png"
+            if target.is_symlink():
+                raise ValueError("Preview file cannot be a symbolic link")
+            if target.is_file():
+                return key, target.read_bytes()
+            body = preview_png(self, product_id)
+            try:
+                directory.mkdir(exist_ok=True)
+                with tempfile.NamedTemporaryFile(
+                    dir=directory, delete=False
+                ) as temporary:
+                    temporary.write(body)
+                os.replace(temporary.name, target)
+                # Bound obsolete generations as well as the number of products.
+                entries = sorted(
+                    directory.glob("*.png"), key=lambda path: path.stat().st_mtime_ns
+                )
+                for old in entries[:-128]:
+                    old.unlink()
+            except OSError:
+                pass  # Read-only captured runs still support previews.
+            return key, body
+
     def volume_binary(
         self,
         product_id: str,
@@ -637,6 +677,28 @@ def make_handler(store: RunStore):
             except (OSError, TypeError, ValueError, json.JSONDecodeError) as error:
                 return self._json({"error": f"Unable to refresh run: {error}"}, 500)
             request = urlparse(self.path)
+            if request.path.startswith("/api/product/") and request.path.endswith(
+                "/preview.png"
+            ):
+                try:
+                    key, body = store.preview(request.path.split("/")[3])
+                    etag = f'"{key}"'
+                    self.send_response(
+                        304 if self.headers.get("If-None-Match") == etag else 200
+                    )
+                    self.send_header("Content-Type", "image/png")
+                    self.send_header("ETag", etag)
+                    self.send_header("Cache-Control", "no-cache")
+                    self._security_headers()
+                    if self.headers.get("If-None-Match") == etag:
+                        self.end_headers()
+                    else:
+                        self.send_header("Content-Length", str(len(body)))
+                        self.end_headers()
+                        self.wfile.write(body)
+                    return
+                except (KeyError, ValueError) as error:
+                    return self._json({"error": str(error)}, 400)
             if request.path == "/api/run":
                 return self._json(store.manifest)
             if (

@@ -274,8 +274,13 @@ function downsampleDepth(volume, limit) {
     values,
   };
 }
+function staticAssetUrl(url) {
+  const revision = state.run?.static_export?.revision;
+  return staticBase && revision && url.startsWith(`${staticBase}/`) && !url.endsWith("/run.json")
+    ? `${url}${url.includes("?") ? "&" : "?"}v=${encodeURIComponent(revision)}` : url;
+}
 async function checkedJson(url) {
-  const response = await fetch(url);
+  const response = await fetch(staticAssetUrl(url), url.endsWith("/run.json") ? { cache: "no-cache" } : undefined);
   if (!response.ok)
     throw new Error(`${response.status} ${response.statusText}`);
   try {
@@ -331,6 +336,11 @@ function indexedUrl(url, entries) {
     .map(([axis, value]) => `index=${axis}:${value}`)
     .join("&")}`;
 }
+async function checkedBuffer(url) {
+  const response = await fetch(staticAssetUrl(url));
+  if (!response.ok) throw new Error(`${response.status} ${response.statusText}`);
+  return response.arrayBuffer();
+}
 async function getVolume(
   product,
   perm,
@@ -346,19 +356,30 @@ async function getVolume(
     state.volumes.set(key, cached);
     return cached;
   }
-  const stem = `${product.id}--${perm.join("-")}`;
+  const contextOnly = state.run?.static_export?.progressive && limit <= 96 && depthLimit <= 12,
+    stem = `${product.id}--${perm.join("-")}`,
+    sourceKey = `${contextOnly ? "contexts" : "volumes"}/${stem}`;
   let source;
   if (staticBase) {
-    source = state.rawVolumes.get(stem);
+    const rawKey = `${sourceKey}:${depthLimit}`;
+    source = state.rawVolumes.get(rawKey);
     if (!source) {
-      source = Promise.all([
-        checkedJson(`${staticBase}/volumes/${stem}.json`),
-        fetch(`${staticBase}/volumes/${stem}.f32`).then((response) => {
-          if (!response.ok)
-            throw new Error(`${response.status} ${response.statusText}`);
-          return response.arrayBuffer();
-        }),
-      ])
+      source = checkedJson(`${staticBase}/${sourceKey}.json`).then(async metadata => {
+        if (!metadata.layer_chunks) {
+          const buffer = await checkedBuffer(`${staticBase}/${sourceKey}.f32`);
+          return [metadata, buffer];
+        }
+        const count = Math.min(depthLimit, metadata.depth),
+          positions = Array.from({ length: count }, (_, i) =>
+            Math.round(i * (metadata.depth - 1) / Math.max(1, count - 1)));
+        const chunks = await Promise.all(positions.map(position =>
+          checkedBuffer(`${staticBase}/layers/${stem}--${position}.f32`)));
+        const planeBytes = metadata.rows * metadata.columns * 4;
+        if (chunks.some(chunk => chunk.byteLength !== planeBytes)) throw new Error("Layer length does not match its metadata");
+        const values = new Uint8Array(planeBytes * chunks.length);
+        chunks.forEach((chunk, index) => values.set(new Uint8Array(chunk), index * planeBytes));
+        return [{ ...metadata, depth: chunks.length, depth_indices: positions.map(i => metadata.depth_indices[i]), shape: [chunks.length, metadata.rows, metadata.columns] }, values.buffer];
+      })
         .then(([metadata, buffer]) => {
           if (
             buffer.byteLength % Float32Array.BYTES_PER_ELEMENT ||
@@ -379,7 +400,7 @@ async function getVolume(
         .then((result) => {
           lruSet(
             state.rawVolumes,
-            stem,
+            rawKey,
             result,
             12,
             MAX_RAW_STATIC_CACHE_BYTES,
@@ -387,10 +408,10 @@ async function getVolume(
           return result;
         })
         .catch((error) => {
-          state.rawVolumes.delete(stem);
+          state.rawVolumes.delete(rawKey);
           throw error;
         });
-      state.rawVolumes.set(stem, source);
+      state.rawVolumes.set(rawKey, source);
     }
   }
   const pending = (
@@ -425,7 +446,20 @@ async function getSlice(product, perm, layer, limit = qualityLimit()) {
     cached = state.slices.get(key);
   if (cached) return cached;
   let pending;
-  if (staticBase) {
+  if (staticBase && state.run?.static_export?.progressive) {
+    const stem = `${product.id}--${perm.join("-")}`;
+    pending = checkedJson(`${staticBase}/volumes/${stem}.json`).then(async metadata => {
+      const buffer = await checkedBuffer(metadata.layer_chunks
+        ? `${staticBase}/layers/${stem}--${clamped}.f32`
+        : `${staticBase}/volumes/${stem}.f32`);
+      const planeSize = metadata.rows * metadata.columns;
+      if (buffer.byteLength !== planeSize * 4 * (metadata.layer_chunks ? 1 : metadata.depth))
+        throw new Error("Layer length does not match its metadata");
+      const values = metadata.layer_chunks ? new Float32Array(buffer)
+        : new Float32Array(buffer, clamped * planeSize * 4, planeSize);
+      return { ...downsampleVolume({ ...metadata, depth: 1, values }, limit), layer: clamped, resolved_layer: clamped };
+    });
+  } else if (staticBase) {
     pending = getVolume(product, perm, limit, sourceDepth).then((volume) => {
       const depthIndices =
           volume.depth_indices ||
@@ -1146,6 +1180,19 @@ async function drawOverview(product, canvas) {
   status.textContent = "Loading preview…";
   status.className = "product-status";
   try {
+    if ((!staticBase || state.run?.static_export?.previews) && state.colorMap === "auto" && (product.overview_aspect || state.overviewAspect) === (product.overview_aspect || "data")) {
+      const image = new Image();
+      image.src = staticBase
+        ? staticAssetUrl(`${staticBase}/previews/${encodeURIComponent(product.id)}.png`)
+        : `/api/product/${encodeURIComponent(product.id)}/preview.png`;
+      await image.decode();
+      canvas.width = 640;
+      canvas.height = 480;
+      canvas.getContext("2d").drawImage(image, 0, 0, 640, 480);
+      status.hidden = true;
+      status.textContent = "";
+      return;
+    }
     const axes = (product.view_axes || product.axes.slice(0, 3)).map((name) =>
         product.axes.indexOf(name),
       ),
@@ -1298,6 +1345,9 @@ function updateViewDepth(group) {
       t = Math.min(1, distance / (stride * 1.5)),
       falloff = t * t * (3 - 2 * t),
       focus = 1 - falloff;
+    const signed = (card.offsetTop + card.offsetHeight / 2 - center) / stride;
+    card.style.setProperty("--view-shift", `${-signed * (stride - 42)}px`);
+    card.style.setProperty("--view-tilt", `${Math.max(-1, Math.min(1, signed)) * -12}deg`);
     card.style.setProperty("--view-scale", String(0.68 + 0.32 * focus));
     card.style.setProperty("--view-opacity", String(0.3 + 0.7 * focus));
     card.style.setProperty("--view-focus", String(focus));
@@ -1346,8 +1396,8 @@ function buildCaptureStack(group) {
   controls.className = "view-controls";
   label.setAttribute("aria-live", "polite");
   previous.type = next.type = "button";
-  previous.textContent = "↗";
-  next.textContent = "↙";
+  previous.textContent = "↑";
+  next.textContent = "↓";
   previous.setAttribute("aria-label", `Previous view of ${group.name}`);
   next.setAttribute("aria-label", `Next view of ${group.name}`);
   previous.onclick = () => promoteView(group, group.active - 1);
@@ -1402,7 +1452,7 @@ function buildCaptureStack(group) {
         markPrimary(group, nearest);
         selectProduct(group.views[nearest]).catch(handleViewerError);
       }
-    }, 160);
+    }, 80);
   }, { passive: true });
   controls.append(previous, label, next);
   controls.hidden = group.views.length === 1;
@@ -1410,12 +1460,39 @@ function buildCaptureStack(group) {
   markPrimary(group, group.active);
   return section;
 }
+let overviewObserver;
+const overviewQueue = [];
+let overviewWorkers = 0;
+function queueOverview(product, canvas) {
+  if (canvas.dataset.queued) return;
+  canvas.dataset.queued = "true";
+  overviewQueue.push({ product, canvas });
+  drainOverviews();
+}
+function drainOverviews() {
+  while (overviewWorkers < 2 && overviewQueue.length) {
+    const { product, canvas } = overviewQueue.shift();
+    if (!canvas.isConnected) continue;
+    overviewWorkers++;
+    drawOverview(product, canvas).catch(() => {}).finally(() => {
+      delete canvas.dataset.queued;
+      overviewWorkers--;
+      drainOverviews();
+    });
+  }
+}
 function redrawOverviews() {
-  const products = new Map(state.run?.products?.map((product) => [product.id, product]));
-  document.querySelectorAll(".product canvas").forEach((canvas) => {
-    const product = products.get(canvas.parentElement.dataset.productId);
-    if (product) drawOverview(product, canvas).catch(() => {});
-  });
+  overviewObserver?.disconnect();
+  overviewObserver = new IntersectionObserver(entries => {
+    for (const entry of entries) {
+      if (!entry.isIntersecting) continue;
+      const canvas = entry.target;
+      overviewObserver.unobserve(canvas);
+      const product = state.run.products.find(product => product.id === canvas.parentElement.dataset.productId);
+      if (product) queueOverview(product, canvas);
+    }
+  }, { rootMargin: "200px" });
+  document.querySelectorAll(".product canvas").forEach(canvas => overviewObserver.observe(canvas));
 }
 
 async function build() {
@@ -1431,6 +1508,7 @@ async function build() {
     );
     if (!state.run || !Array.isArray(state.run.products))
       throw new Error("Run manifest does not contain a product list");
+    for (const cache of [state.volumes, state.rawVolumes, state.slices, state.bitmaps, state.coordinates]) cache.clear();
     $("run-name").textContent = state.run.name;
     $("run-meta").textContent =
       `${state.run.capture_count ?? state.run.products.length} captured products · ${state.run.products.length} plots · ${state.run.created_at}`;

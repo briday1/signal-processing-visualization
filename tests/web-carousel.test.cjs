@@ -6,7 +6,7 @@ const source = readFileSync(new URL('../src/spviz/web/app.js', `file://${__filen
 class Element {
   constructor(tag) {
     this.tag = tag; this.children = []; this.dataset = {}; this.attributes = {};
-    this.events = {}; this.scrollTop = 0; this.clientHeight = 420; this.offsetHeight = 240;
+    this.events = {}; this.scrollTop = 0; this.clientHeight = 290; this.offsetHeight = 240;
     this.isConnected = true;
     this.style = { setProperty(name, value) { this[name] = value; } };
     this.classes = new Set();
@@ -15,7 +15,7 @@ class Element {
   append(...children) {
     for (const child of children) {
       child.parentElement = this;
-      child.offsetTop = 90 + this.children.length * 120;
+      child.offsetTop = 25 + this.children.length * 72;
       this.children.push(child);
     }
   }
@@ -52,7 +52,7 @@ context.centerView(groups[0], groups[0].active, 'instant');
 const flush = () => { const pending = [...timers.values()]; timers.clear(); pending.forEach(callback => callback()); };
 flush();
 assert.equal(selections.length, 0, 'initial centering must not steal inspector focus');
-assert.equal(groups[0].viewport.scrollTop, 120);
+assert.equal(groups[0].viewport.scrollTop, 72);
 assert.equal(groups[0].cards[1].attributes['aria-current'], 'true');
 assert.equal(groups[1].active, 0);
 assert.equal(groups[1].previous.disabled, true);
@@ -88,13 +88,13 @@ const scale = card => Number(card.style['--view-scale']);
 assert.equal(scale(groups[0].cards[1]), 1);
 assert.ok(scale(groups[0].cards[0]) < 0.8);
 const selectedBeforeScroll = selections.length;
-groups[0].viewport.scrollTop = 60;
+groups[0].viewport.scrollTop = 36;
 groups[0].viewport.events.scroll();
 assert.equal(selections.length, selectedBeforeScroll);
 assert.equal(scale(groups[0].cards[0]), scale(groups[0].cards[1]));
 assert.ok(scale(groups[0].cards[0]) > 0.8 && scale(groups[0].cards[0]) < 1);
 const halfwayScale = scale(groups[0].cards[0]);
-groups[0].viewport.scrollTop = 59;
+groups[0].viewport.scrollTop = 35;
 groups[0].viewport.events.scroll();
 assert.ok(scale(groups[0].cards[0]) > halfwayScale);
 assert.ok(scale(groups[0].cards[0]) - halfwayScale < 0.01);

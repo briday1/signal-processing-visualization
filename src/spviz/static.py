@@ -123,6 +123,12 @@ def _export_into(store: RunStore, output: Path, per_volume_budget: int) -> None:
     volumes = data / "volumes"
     coordinates.mkdir(parents=True)
     volumes.mkdir(parents=True)
+    previews = data / "previews"
+    previews.mkdir()
+    layers = data / "layers"
+    layers.mkdir()
+    contexts = data / "contexts"
+    contexts.mkdir()
 
     web = files("spviz").joinpath("web")
     for name in ("index.html", "style.css", "range.css", "app.js", "gif.js"):
@@ -134,6 +140,11 @@ def _export_into(store: RunStore, output: Path, per_volume_budget: int) -> None:
 
     export_manifest = deepcopy(store.manifest)
     export_manifest["static_export"] = {
+        "revision": hashlib.sha256(repr(_source_signature(store)).encode()).hexdigest()[
+            :16
+        ],
+        "progressive": True,
+        "previews": True,
         "volume_count": _volume_count(store.manifest),
         "max_bytes_per_volume": per_volume_budget,
         "max_total_volume_bytes": per_volume_budget * _volume_count(store.manifest),
@@ -143,6 +154,8 @@ def _export_into(store: RunStore, output: Path, per_volume_budget: int) -> None:
     capped_volumes = 0
     for product in store.manifest["products"]:
         product_id = product["id"]
+        _, png = store.preview(product_id)
+        (previews / f"{product_id}.png").write_bytes(png)
         for axis in range(len(product["axes"])):
             payload = store.coordinates(product_id, axis)
             (coordinates / f"{product_id}--{axis}.json").write_text(
@@ -211,11 +224,29 @@ def _export_into(store: RunStore, output: Path, per_volume_budget: int) -> None:
             capped_volumes += int(plane_capped or depth_capped)
             exported_volume_bytes += len(body)
             stem = f"{product_id}--{'-'.join(map(str, permutation))}"
+            metadata["layer_chunks"] = len(body) > 256_000
             (volumes / f"{stem}.json").write_text(
                 json.dumps(metadata, separators=(",", ":"), allow_nan=False),
                 encoding="utf-8",
             )
-            (volumes / f"{stem}.f32").write_bytes(body)
+            if metadata["layer_chunks"]:
+                plane_bytes = metadata["rows"] * metadata["columns"] * 4
+                for layer in range(metadata["depth"]):
+                    (layers / f"{stem}--{layer}.f32").write_bytes(
+                        body[layer * plane_bytes : (layer + 1) * plane_bytes]
+                    )
+            else:
+                (volumes / f"{stem}.f32").write_bytes(body)
+            context_metadata, context_body = store.volume_binary(
+                product_id,
+                list(permutation),
+                96,
+                depth_limit=12,
+            )
+            (contexts / f"{stem}.json").write_text(
+                json.dumps(context_metadata, separators=(",", ":")), encoding="utf-8"
+            )
+            (contexts / f"{stem}.f32").write_bytes(context_body)
 
     export_manifest["static_export"].update(
         {"volume_bytes": exported_volume_bytes, "capped_volumes": capped_volumes}
