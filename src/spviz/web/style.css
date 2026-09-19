@@ -164,7 +164,7 @@ main {
   color: var(--muted);
 }
 .product.selected canvas {
-  filter: drop-shadow(0 0 8px rgba(110, 131, 255, 0.55));
+  filter: none;
 }
 .edge {
   position: relative;
@@ -396,7 +396,6 @@ dd {
   overscroll-behavior-y: contain;
   scrollbar-width: none;
   scrollbar-color: var(--line) transparent;
-  mask-image: linear-gradient(transparent, black 8%, black 92%, transparent);
 }
 .view-carousel .product {
   display: block;
@@ -406,7 +405,7 @@ dd {
   scroll-snap-align: center;
   scroll-snap-stop: always;
   z-index: 1;
-  opacity: var(--view-opacity, 0.65);
+  opacity: 1;
   transform: translateY(var(--view-shift, 0px)) scale(var(--view-scale, 0.25));
   /* Scroll position supplies continuous interpolation, without a delayed snap. */
 }
@@ -499,3 +498,29 @@ dd {
 .comparison-card img[hidden] { display: none; }
 
 .embedded-viewer body > header { min-height: 0; padding: 8px 12px; justify-content: flex-end; }
+
+/* Discover every view without cycling the plot carousel. */
+.view-choices {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 5px;
+  max-height: 84px;
+  overflow-y: auto;
+  padding: 4px;
+  scrollbar-width: thin;
+}
+.view-choice {
+  font: inherit;
+  font-size: 11px;
+  padding: 4px 7px;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  background: transparent;
+  color: var(--muted);
+}
+.view-choice[aria-pressed="true"] {
+  color: var(--text);
+  border-color: #6177ff;
+  background: rgba(97, 119, 255, 0.16);
+}

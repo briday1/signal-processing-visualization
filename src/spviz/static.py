@@ -138,6 +138,14 @@ def _export_into(store: RunStore, output: Path, per_volume_budget: int) -> None:
         encoding="utf-8",
     )
 
+    # Content-address UI assets as well as data: Pages may otherwise combine a
+    # fresh manifest with the previous deployment's cached JavaScript and CSS.
+    index = (output / "index.html").read_text(encoding="utf-8")
+    for name in ("style.css", "range.css", "config.js", "gif.js", "app.js"):
+        revision = hashlib.sha256((output / name).read_bytes()).hexdigest()[:16]
+        index = index.replace(f'"./{name}"', f'"./{name}?v={revision}"')
+    (output / "index.html").write_text(index, encoding="utf-8")
+
     export_manifest = deepcopy(store.manifest)
     export_manifest["static_export"] = {
         "revision": hashlib.sha256(repr(_source_signature(store)).encode()).hexdigest()[

@@ -1371,6 +1371,7 @@ function markPrimary(group, index) {
     card.classList.toggle("primary", i === index);
     card.setAttribute("aria-current", i === index ? "true" : "false");
   });
+  group.choices?.forEach((choice, i) => choice.setAttribute("aria-pressed", String(i === index)));
   group.previous.disabled = index === 0;
   group.next.disabled = index === group.views.length - 1;
   group.label.textContent = `${group.views[index].view_name || "Default"} · ${index + 1}/${group.views.length}`;
@@ -1393,6 +1394,7 @@ function promoteView(group, index, focus = false) {
 function buildCaptureStack(group) {
   const section = document.createElement("section"),
     heading = document.createElement("h3"),
+    choices = document.createElement("div"),
     viewport = document.createElement("div"),
     controls = document.createElement("div"),
     previous = document.createElement("button"),
@@ -1401,6 +1403,9 @@ function buildCaptureStack(group) {
   section.className = "tap-stack";
   section.setAttribute("aria-label", group.name);
   heading.textContent = group.name;
+  choices.className = "view-choices";
+  choices.setAttribute("role", "group");
+  choices.setAttribute("aria-label", `Available views of ${group.name}`);
   viewport.className = "view-carousel";
   viewport.setAttribute("aria-label", `${group.name} views`);
   viewport.setAttribute("role", "group");
@@ -1413,8 +1418,16 @@ function buildCaptureStack(group) {
   next.setAttribute("aria-label", `Next view of ${group.name}`);
   previous.onclick = () => promoteView(group, group.active - 1);
   next.onclick = () => promoteView(group, group.active + 1);
-  Object.assign(group, { viewport, previous, next, label, cards: [] });
+  Object.assign(group, { viewport, previous, next, label, cards: [], choices: [] });
   group.views.forEach((product, index) => {
+    const choice = document.createElement("button");
+    choice.type = "button";
+    choice.className = "view-choice";
+    choice.textContent = product.view_name || "Default";
+    choice.setAttribute("aria-label", `Show ${product.view_name || "Default"} for ${group.name}`);
+    choice.onclick = () => promoteView(group, index);
+    choices.append(choice);
+    group.choices.push(choice);
     const button = document.createElement("button"),
       canvas = document.createElement("canvas"),
       status = document.createElement("span"),
@@ -1467,7 +1480,7 @@ function buildCaptureStack(group) {
   }, { passive: true });
   controls.append(previous, label, next);
   controls.hidden = group.views.length === 1;
-  section.append(heading, viewport, controls);
+  section.append(heading, choices, viewport, controls);
   markPrimary(group, group.active);
   return section;
 }
